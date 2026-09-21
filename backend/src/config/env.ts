@@ -27,7 +27,7 @@ const envSchema = z.object({
   MAX_FILE_SIZE_MB: z.coerce.number().default(25),
   WHATSAPP_PROVIDER: z.string().default('wpsender'),
   WHATSAPP_API_URL: z.string().default('https://backendapi.wpsenderx.com/api/messages/send'),
-  WHATSAPP_API_KEY: z.string().default('wps_95e5baeef7556807bc2ccfb3272296e9f03a84d73b92e757ce7a11a0b1ef6141'),
+  WHATSAPP_API_KEY: z.string().default('wps_7b5db2a829ff4377ad0c6c42ea7fe4af991c191992305e70eab136c8bb89f7d2'),
   WHATSAPP_SENDER_PHONE: z.string().default('+201206895603'),
   ULTRAMSG_INSTANCE_ID: z.string().default('instance191672'),
   ULTRAMSG_TOKEN: z.string().default('xp6rt5dva1hbclsv'),

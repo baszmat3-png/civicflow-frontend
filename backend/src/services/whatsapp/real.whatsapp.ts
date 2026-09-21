@@ -67,7 +67,7 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
 
   async sendMessage(options: SendWhatsAppOptions): Promise<SendWhatsAppResult> {
     const formattedPhone = this.formatPhoneNumber(options.to);
-    const apiKey = (process.env.WHATSAPP_API_KEY || (env as any).WHATSAPP_API_KEY || 'wps_95e5baeef7556807bc2ccfb3272296e9f03a84d73b92e757ce7a11a0b1ef6141').trim();
+    const apiKey = (process.env.WHATSAPP_API_KEY || (env as any).WHATSAPP_API_KEY || 'wps_7b5db2a829ff4377ad0c6c42ea7fe4af991c191992305e70eab136c8bb89f7d2').trim();
     const apiUrl = (process.env.WHATSAPP_API_URL || (env as any).WHATSAPP_API_URL || 'https://backendapi.wpsenderx.com/api/messages/send').trim();
     const senderPhone = this.formatPhoneNumber(process.env.WHATSAPP_SENDER_PHONE || (env as any).WHATSAPP_SENDER_PHONE || '201206895603');
 
