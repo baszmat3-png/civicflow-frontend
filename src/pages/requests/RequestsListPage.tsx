@@ -97,29 +97,32 @@ export const RequestsListPage: React.FC = () => {
 
   // Helper to distinguish portal received requests
   const isPublicReceived = (r: RequestItem) => {
-    return Boolean(
-      r.status === 'استلام الطلب' ||
-      r.title?.includes('البوابة') ||
-      r.title?.includes('بوابة') ||
-      r.details?.includes('البوابة') ||
-      r.details?.includes('بوابة') ||
+    const hasPortalTimeline =
       r.timeline?.some((h: any) =>
         h.employeeName?.includes('بوابة') ||
         h.employeeName?.includes('Portal') ||
         h.actorName?.includes('بوابة') ||
         h.actorName?.includes('Portal') ||
-        h.note?.includes('البوابة') ||
-        h.note?.includes('بوابة')
+        h.note?.includes('البوابة العامة للمراجعين') ||
+        h.note?.includes('بوابة المراجع')
       ) ||
       (r as any).statusHistory?.some((h: any) =>
         h.employeeName?.includes('بوابة') ||
         h.employeeName?.includes('Portal') ||
         h.actorName?.includes('بوابة') ||
         h.actorName?.includes('Portal') ||
-        h.note?.includes('البوابة') ||
-        h.note?.includes('بوابة')
-      )
-    );
+        h.note?.includes('البوابة العامة للمراجعين') ||
+        h.note?.includes('بوابة المراجع')
+      );
+
+    const hasPortalTitleOrDetails =
+      r.title?.includes('بوابة المراجع') ||
+      r.title?.includes('البوابة الإلكترونية') ||
+      r.title?.includes('طلب مراجع عبر البوابة') ||
+      r.details?.includes('البوابة العامة للمراجعين') ||
+      r.details?.includes('بوابة المراجع الإلكترونية');
+
+    return Boolean(hasPortalTimeline || hasPortalTitleOrDetails || (r as any).source === 'PORTAL' || (r as any).isPublic === true);
   };
 
   // Metrics for tab counters
