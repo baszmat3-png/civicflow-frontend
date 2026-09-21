@@ -46,7 +46,7 @@ const issueSession = async (req: Request, res: Response, user: any) => {
   const refreshToken = generateRefreshToken(tokenPayload);
 
   const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 7);
+  expiresAt.setDate(expiresAt.getDate() + 365);
 
   await prisma.refreshToken.create({
     data: {
@@ -61,7 +61,7 @@ const issueSession = async (req: Request, res: Response, user: any) => {
     secure: env.NODE_ENV === 'production',
     sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
     partitioned: env.NODE_ENV === 'production',
-    maxAge: 7 * 24 * 60 * 60 * 1000
+    maxAge: 365 * 24 * 60 * 60 * 1000 // 365 days
   });
 
   const permissions = user.role?.rolePermissions?.map((rp: any) => rp.permission.key) || [];

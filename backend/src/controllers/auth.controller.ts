@@ -101,10 +101,10 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
 
-    // Persist refresh token in database (90 days expiry for persistent login)
+    // Persist refresh token in database (365 days expiry for persistent login)
     const tokenHashStr = hashToken(refreshToken);
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 90);
+    expiresAt.setDate(expiresAt.getDate() + 365);
 
     await prisma.refreshToken.create({
       data: {
@@ -129,13 +129,13 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       }
     });
 
-    // Set Refresh Token as HTTP-Only Cookie (90 days persistence)
+    // Set Refresh Token as HTTP-Only Cookie (365 days persistence)
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: env.NODE_ENV === 'production',
       sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
       partitioned: env.NODE_ENV === 'production',
-      maxAge: 90 * 24 * 60 * 60 * 1000 // 90 days
+      maxAge: 365 * 24 * 60 * 60 * 1000 // 365 days
     });
 
     const permissions = user.role.rolePermissions.map((rp) => rp.permission.key);
@@ -201,9 +201,6 @@ export const refreshToken = async (req: Request, res: Response, next: NextFuncti
       throw new AppError('رمز التحديث غير مسجل أو تم إلغاؤه مسبقاً', 401, 'REVOKED_REFRESH_TOKEN');
     }
 
-    // Token rotation: delete old token
-    await prisma.refreshToken.delete({ where: { id: savedToken.id } });
-
     // Fetch fresh user data
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
@@ -234,25 +231,26 @@ export const refreshToken = async (req: Request, res: Response, next: NextFuncti
     const newAccessToken = generateAccessToken(tokenPayload);
     const newRefreshToken = generateRefreshToken(tokenPayload);
 
-    // Save new refresh token (90 days)
+    // Save new refresh token (365 days)
     const newExpiresAt = new Date();
-    newExpiresAt.setDate(newExpiresAt.getDate() + 90);
+    newExpiresAt.setDate(newExpiresAt.getDate() + 365);
 
-    await prisma.refreshToken.create({
+    // Update existing token atomically
+    await prisma.refreshToken.update({
+      where: { id: savedToken.id },
       data: {
-        userId: user.id,
         tokenHash: hashToken(newRefreshToken),
         expiresAt: newExpiresAt
       }
     });
 
-    // Set new cookie (90 days)
+    // Set new cookie (365 days)
     res.cookie('refreshToken', newRefreshToken, {
       httpOnly: true,
       secure: env.NODE_ENV === 'production',
       sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
       partitioned: env.NODE_ENV === 'production',
-      maxAge: 90 * 24 * 60 * 60 * 1000 // 90 days
+      maxAge: 365 * 24 * 60 * 60 * 1000 // 365 days
     });
 
     const permissions = user.role.rolePermissions.map((rp) => rp.permission.key);
