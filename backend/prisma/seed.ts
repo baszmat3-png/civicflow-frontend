@@ -162,7 +162,7 @@ async function main() {
 
   // 4. Seed Users (Bcrypt hashed password)
   const saltRounds = 10;
-  const defaultPasswordHash = await bcrypt.hash('CivicFlow@Master2026#X', saltRounds);
+  const defaultPasswordHash = await bcrypt.hash('CivicFlow@Secure2026', saltRounds);
 
   const adminUser = await prisma.user.create({
     data: {
