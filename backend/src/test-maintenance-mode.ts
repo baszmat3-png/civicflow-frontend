@@ -112,7 +112,7 @@ async function runMaintenanceTests() {
     const corsRes = await fetch(`${baseUrl}/api/requests`, {
       method: 'OPTIONS',
       headers: {
-        Origin: 'https://civicflow-frontend-4.onrender.com',
+        Origin: 'https://civicflow-frontend-1-hoy9.onrender.com',
         'Access-Control-Request-Method': 'GET'
       }
     });

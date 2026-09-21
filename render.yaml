@@ -23,7 +23,7 @@ services:
       - key: JWT_REFRESH_SECRET
         generateValue: true
       - key: FRONTEND_URL
-        value: https://civicflow-frontend-4.onrender.com
+        value: https://civicflow-frontend-1-hoy9.onrender.com
       - key: WHATSAPP_PROVIDER
         value: wpsender
       - key: WHATSAPP_API_URL

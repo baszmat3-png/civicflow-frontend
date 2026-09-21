@@ -46,7 +46,7 @@
    - `NODE_ENV`: `production`
    - `JWT_ACCESS_SECRET`: `civicflow_jwt_access_secret_key_prod_2026_secure`
    - `JWT_REFRESH_SECRET`: `civicflow_jwt_refresh_secret_key_prod_2026_secure`
-   - `FRONTEND_URL`: `https://civicflow-frontend-4.onrender.com` *(أو رابط الواجهة الخاص بك على Render)*
+   - `FRONTEND_URL`: `https://civicflow-frontend-1-hoy9.onrender.com` *(أو رابط الواجهة الخاص بك على Render)*
    - `WHATSAPP_PROVIDER`: `wpsender`
    - `WHATSAPP_API_URL`: `https://backendapi.wpsenderx.com/api/messages/send`
    - `WHATSAPP_API_KEY`: `wps_7b5db2a829ff4377ad0c6c42ea7fe4af991c191992305e70eab136c8bb89f7d2`

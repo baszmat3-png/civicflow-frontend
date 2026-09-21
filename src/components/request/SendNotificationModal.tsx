@@ -19,7 +19,7 @@ export const SendNotificationModal: React.FC<SendNotificationModalProps> = ({
   const { success } = useToast();
   const [channel, setChannel] = useState<'whatsapp' | 'sms'>('whatsapp');
   const [template, setTemplate] = useState('status');
-  const trackingBase = typeof window !== 'undefined' ? window.location.origin : 'https://civicflow-frontend-4.onrender.com';
+  const trackingBase = typeof window !== 'undefined' ? window.location.origin : 'https://civicflow-frontend-1-hoy9.onrender.com';
   const [customText, setCustomText] = useState(
     `عزيزي المراجع ${request.customerName}، نود إحاطتكم بآخر تحديثات طلبكم رقم ${request.requestNumber} لدى ${request.ministryName}: حالياً (${request.status}). الرابط: ${trackingBase}/track/${request.requestNumber}`
   );

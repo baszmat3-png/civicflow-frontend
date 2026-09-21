@@ -5,7 +5,7 @@ import { prisma } from '../../config/database.js';
 const getBaseTrackingUrl = (): string => {
   let frontUrl = (process.env.FRONTEND_URL || env.FRONTEND_URL || '').trim();
   if (!frontUrl || frontUrl.includes('localhost') || frontUrl.includes('127.0.0.1')) {
-    frontUrl = 'https://civicflow-frontend-4.onrender.com';
+    frontUrl = 'https://civicflow-frontend-1-hoy9.onrender.com';
   }
   return frontUrl.replace(/\/+$/, '');
 };

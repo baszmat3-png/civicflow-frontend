@@ -17,7 +17,7 @@ const rawSmtpFrom = (process.env.SMTP_FROM || (rawSmtpUser ? `"منظومة Civi
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('production'),
   PORT: z.coerce.number().default(5000),
-  FRONTEND_URL: z.string().default('https://civicflow-frontend-4.onrender.com'),
+  FRONTEND_URL: z.string().default('https://civicflow-frontend-1-hoy9.onrender.com'),
   JWT_ACCESS_SECRET: z.string().default('civicflow_jwt_access_secret_rotated_2026_x89q_session_wipe'),
   JWT_ACCESS_EXPIRES_IN: z.string().default('30d'),
   JWT_REFRESH_SECRET: z.string().default('civicflow_jwt_refresh_secret_rotated_2026_z91k_session_wipe'),
