@@ -13,6 +13,7 @@ import { whatsAppRouter } from './whatsapp.routes.js';
 import { publicRouter } from './public.routes.js';
 import { cityRouter } from './city.routes.js';
 import { requestTypeRouter } from './requestType.routes.js';
+import { backupRouter } from './backup.routes.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
 import { requirePermission } from '../middlewares/rbac.middleware.js';
 import { sendSuccess } from '../utils/apiResponse.js';
@@ -36,6 +37,7 @@ apiRouter.use('/reports', reportRouter);
 apiRouter.use('/audit-logs', auditRouter);
 apiRouter.use('/settings', settingRouter);
 apiRouter.use('/whatsapp', whatsAppRouter);
+apiRouter.use('/backup', backupRouter);
 
 // Test RBAC routes for verification
 apiRouter.get('/test/public', (req, res) => {

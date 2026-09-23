@@ -17,7 +17,8 @@ import {
   CheckCircle2,
   FileCode2,
   MapPin,
-  Layers
+  Layers,
+  Database
 } from 'lucide-react';
 
 export const SettingsOverviewPage: React.FC = () => {
@@ -31,6 +32,12 @@ export const SettingsOverviewPage: React.FC = () => {
       desc: 'اسم المنظومة، معلومات المكتب، العنوان، وأوقات العمل الرسمية',
       icon: <Settings className="w-6 h-6 text-blue-600" />,
       path: '/settings/general'
+    },
+    {
+      title: 'النسخ الاحتياطي وحماية البيانات',
+      desc: 'تصدير واستعادة نسخة كاملة من قاعدة البيانات، وجدولة النسخ اليومي التلقائي',
+      icon: <Database className="w-6 h-6 text-emerald-600" />,
+      path: '/settings/backup'
     },
     {
       title: 'إدارة المدن والمحافظات',

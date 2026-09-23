@@ -2,6 +2,7 @@ import { app } from './app.js';
 import { env } from './config/env.js';
 import { prisma } from './config/database.js';
 import { startSlaBackgroundJob } from './jobs/slaChecker.job.js';
+import { startBackupBackgroundJob } from './jobs/backup.job.js';
 import { seedDatabase } from './seed.js';
 import { verifySmtpConnection } from './services/email.service.js';
 import { ensureSystemPermissions } from './controllers/role.controller.js';
@@ -201,8 +202,9 @@ async function startServer() {
     await ensureIraqiGovernorates();
     await ensureSystemPermissions();
 
-    // Start background SLA job
+    // Start background jobs (SLA checker + Automated daily database backups)
     startSlaBackgroundJob();
+    startBackupBackgroundJob();
 
     // Safely verify SMTP configuration in the background
     verifySmtpConnection().catch((smtpErr) => {

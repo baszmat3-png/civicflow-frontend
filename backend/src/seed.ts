@@ -6,35 +6,13 @@ const prisma = new PrismaClient();
 export async function seedDatabase() {
   console.log('🌱 Starting CivicFlow database seeding with product upgrade...');
 
-  // 1. Check if database already contains real data to prevent wiping
+  // 1. Check if database already contains real data to prevent duplicate demo seeding
   const existingReqsCount = await prisma.request.count();
   const existingUsersCount = await prisma.user.count();
   if (existingReqsCount > 0 || existingUsersCount > 0) {
-    console.log('✅ Real database records already exist. Preserving user data and skipping destructive purge.');
+    console.log('✅ Real database records already exist. Preserving user data and skipping demo seeding.');
     return;
   }
-
-  // 1. Clean existing records only on initial blank setup
-  await prisma.auditLog.deleteMany();
-  await prisma.notification.deleteMany();
-  await prisma.finalResponse.deleteMany();
-  await prisma.requestAttachment.deleteMany();
-  await prisma.requestStatusHistory.deleteMany();
-  await prisma.request.deleteMany();
-  await prisma.sLASetting.deleteMany();
-  await prisma.ministry.deleteMany();
-  await prisma.customer.deleteMany();
-  await prisma.city.deleteMany();
-  await prisma.requestType.deleteMany();
-  await prisma.requestStatus.deleteMany();
-  await prisma.whatsAppMessageLog.deleteMany();
-  await prisma.whatsAppTemplate.deleteMany();
-  await prisma.systemSetting.deleteMany();
-  await prisma.refreshToken.deleteMany();
-  await prisma.user.deleteMany();
-  await prisma.rolePermission.deleteMany();
-  await prisma.permission.deleteMany();
-  await prisma.role.deleteMany();
 
   // 2. Seed Permissions
   const permissionsData = [

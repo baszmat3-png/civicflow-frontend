@@ -63,6 +63,7 @@ import { SlaSettingsPage } from '../pages/settings/SlaSettingsPage';
 import { NotificationSettingsPage } from '../pages/settings/NotificationSettingsPage';
 import { WhatsAppSettingsPage } from '../pages/settings/WhatsAppSettingsPage';
 import { WhatsAppTemplatesPage } from '../pages/settings/WhatsAppTemplatesPage';
+import { BackupSettingsPage } from '../pages/settings/BackupSettingsPage';
 
 // Public Pages
 import { PublicTrackPage } from '../pages/public/PublicTrackPage';
@@ -376,6 +377,14 @@ export const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute permission={PERMISSIONS.SETTINGS_MANAGE}>
               <WhatsAppTemplatesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings/backup"
+          element={
+            <ProtectedRoute permission={PERMISSIONS.SETTINGS_MANAGE}>
+              <BackupSettingsPage />
             </ProtectedRoute>
           }
         />
