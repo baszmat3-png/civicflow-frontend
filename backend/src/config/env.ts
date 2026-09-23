@@ -24,7 +24,7 @@ const envSchema = z.object({
   JWT_REFRESH_EXPIRES_IN: z.string().default('365d'),
   STORAGE_PROVIDER: z.enum(['local', 's3', 'cloudinary']).default('local'),
   UPLOAD_DIR: z.string().default('uploads'),
-  MAX_FILE_SIZE_MB: z.coerce.number().default(25),
+  MAX_FILE_SIZE_MB: z.coerce.number().default(50),
   WHATSAPP_PROVIDER: z.string().default('wpsender'),
   WHATSAPP_API_URL: z.string().default('https://backendapi.wpsenderx.com/api/messages/send'),
   WHATSAPP_API_KEY: z.string().default('wps_7b5db2a829ff4377ad0c6c42ea7fe4af991c191992305e70eab136c8bb89f7d2'),

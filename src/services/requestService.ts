@@ -1,5 +1,6 @@
 import { apiClient } from './apiClient';
 import { RequestItem, RequestStatus, RequestAttachment, FinalResponse } from '../types';
+import { calculateFileSha256 } from '../utils/fileChecksum';
 
 export const requestService = {
   getRequests: async (filters?: {
@@ -84,11 +85,14 @@ export const requestService = {
     }
   ): Promise<RequestAttachment> => {
     if (attachment.file) {
+      const hash = await calculateFileSha256(attachment.file);
       const formData = new FormData();
       formData.append('file', attachment.file);
       formData.append('name', attachment.name);
       formData.append('type', attachment.type);
       formData.append('size', attachment.size);
+      formData.append('expectedSize', String(attachment.file.size));
+      if (hash) formData.append('checksum', hash);
       if (attachment.uploadedBy) formData.append('uploadedBy', attachment.uploadedBy);
       if (attachment.documentType) formData.append('documentType', attachment.documentType);
       if (attachment.isPublic !== undefined) formData.append('isPublic', String(attachment.isPublic));

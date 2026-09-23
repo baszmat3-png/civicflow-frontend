@@ -36,6 +36,8 @@ const mapDocumentType = (type?: string): DocumentType => {
   return DocumentType.GENERAL;
 };
 
+import { verifyAndValidateUploadedFile, cleanupFile, formatBytes } from '../utils/fileIntegrity.js';
+
 export const addAttachment = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id: requestId } = req.params;
@@ -43,13 +45,28 @@ export const addAttachment = async (req: Request, res: Response, next: NextFunct
     const bodyName = req.body.name;
     const bodyType = req.body.type;
     const bodySize = req.body.size;
+    const clientExpectedSize = req.body.expectedSize ? Number(req.body.expectedSize) : undefined;
+    const clientChecksum = req.body.checksum || req.body.fileChecksum;
     const docTypeRaw = req.body.documentType;
     const isPublicBool = req.body.isPublic === 'true' || req.body.isPublic === true;
     const uploadedBy = req.body.uploadedBy || req.user?.name || 'أحمد علي';
 
     const request = await prisma.request.findUnique({ where: { id: requestId } });
     if (!request) {
+      if (file?.path) cleanupFile(file.path);
       throw new AppError('المعاملة غير موجودة', 404, 'REQUEST_NOT_FOUND');
+    }
+
+    // Perform strict file integrity & size verification if a file was uploaded
+    if (file) {
+      const integrity = verifyAndValidateUploadedFile(file, {
+        expectedSize: clientExpectedSize,
+        expectedChecksum: clientChecksum
+      });
+
+      if (!integrity.valid) {
+        throw new AppError(integrity.error || 'فشل التحقق من سلامة الملف المرفوع', 400, 'FILE_INTEGRITY_FAILED');
+      }
     }
 
     const documentType = mapDocumentType(docTypeRaw);
@@ -113,8 +130,9 @@ export const addAttachment = async (req: Request, res: Response, next: NextFunct
       url: `/uploads/${newAttachment.filePath}`
     };
 
-    return sendSuccess(res, formatted, 'تم رفع المستند بنجاح', 201);
+    return sendSuccess(res, formatted, 'تم رفع المستند والتحقق من سلامته بنجاح', 201);
   } catch (error) {
+    if (req.file?.path) cleanupFile(req.file.path);
     next(error);
   }
 };
@@ -132,18 +150,26 @@ export const downloadAttachment = async (req: Request, res: Response, next: Next
     });
 
     if (!attachment) {
-      throw new AppError('المستند المطلوب غير موجود', 404, 'ATTACHMENT_NOT_FOUND');
+      throw new AppError('المستند المطلوب غير موجود في المنظومة', 404, 'ATTACHMENT_NOT_FOUND');
     }
 
     const safeFileName = path.basename(attachment.filePath);
     const fullPath = path.resolve(process.cwd(), env.UPLOAD_DIR, safeFileName);
 
     if (!fs.existsSync(fullPath)) {
-      const uploadDir = path.resolve(process.cwd(), env.UPLOAD_DIR);
-      if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-      fs.writeFileSync(fullPath, `CivicFlow Document: ${attachment.name}\nUploaded By: ${attachment.uploadedBy}\nUploaded At: ${attachment.uploadedAt.toISOString()}`);
+      // Check if it exists in base demo uploads
+      const fallbackDemoPath = path.resolve(process.cwd(), 'uploads', safeFileName);
+      if (fs.existsSync(fallbackDemoPath)) {
+        return res.download(fallbackDemoPath, attachment.name);
+      }
+      throw new AppError(
+        `ملف المستند (${attachment.name}) غير موجود على الخادم (ربما تم تنظيف القرص المؤقت أو لم يكتمل الرفع سابقاً).`,
+        404,
+        'FILE_NOT_FOUND_ON_DISK'
+      );
     }
 
+    // Send the binary file cleanly without corruption
     return res.download(fullPath, attachment.name);
   } catch (error) {
     next(error);

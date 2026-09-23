@@ -9,6 +9,7 @@ import { calculateRequestSLA } from '../services/sla.service.js';
 import { generateNextRequestNumber } from '../services/requestNumber.service.js';
 import { generateNextCustomerNumber } from '../services/customerNumber.service.js';
 import { whatsappNotificationService } from '../services/whatsapp/whatsappNotification.service.js';
+import { verifyAndValidateUploadedFile, cleanupFile } from '../utils/fileIntegrity.js';
 
 const createRequestSchema = z.object({
   customerId: z.string().min(1, 'المراجع مطلوب'),
@@ -748,6 +749,14 @@ export const changeRequestStatus = async (req: Request, res: Response, next: Nex
 
     const isTerminal = ['تم التسليم', 'مغلق', 'الإجابة جاهزة'].includes(newStatus);
     const completedDate = isTerminal ? new Date() : existing.completedDate;
+
+    // Validate uploaded file integrity
+    if (file) {
+      const integrity = verifyAndValidateUploadedFile(file);
+      if (!integrity.valid) {
+        throw new AppError(integrity.error || 'فشل التحقق من سلامة الملف المرفوع مع تغيير الحالة', 400, 'FILE_INTEGRITY_FAILED');
+      }
+    }
 
     const updated = await prisma.$transaction(async (tx) => {
       let createdAttachmentId: string | undefined;

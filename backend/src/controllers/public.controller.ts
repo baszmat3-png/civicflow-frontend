@@ -11,6 +11,7 @@ import { generateNextRequestNumber } from '../services/requestNumber.service.js'
 import { generateNextCustomerNumber } from '../services/customerNumber.service.js';
 import { whatsappNotificationService } from '../services/whatsapp/whatsappNotification.service.js';
 import { env } from '../config/env.js';
+import { verifyAndValidateUploadedFile, cleanupFile, formatBytes } from '../utils/fileIntegrity.js';
 
 const optionalString = z.preprocess(
   (v) => (v === null || v === undefined || v === '' ? undefined : String(v).trim()),
@@ -154,6 +155,44 @@ export const submitPublicRequest = async (req: Request, res: Response, next: Nex
     }
     if (req.file) {
       rawFilesList.push(req.file);
+    }
+
+    // Deduplicate files by filename and size to prevent repeated uploads
+    const seenFiles = new Set<string>();
+    rawFilesList = rawFilesList.filter((f) => {
+      const key = `${f.originalname}_${f.size}`;
+      if (seenFiles.has(key)) {
+        cleanupFile(f.path);
+        return false;
+      }
+      seenFiles.add(key);
+      return true;
+    });
+
+    // Parse client checksums map if provided: e.g. req.body.fileChecksums = JSON string or object
+    let clientChecksumsMap: Record<string, string> = {};
+    if (req.body.fileChecksums) {
+      try {
+        clientChecksumsMap = typeof req.body.fileChecksums === 'string'
+          ? JSON.parse(req.body.fileChecksums)
+          : req.body.fileChecksums;
+      } catch {
+        // ignore parse error
+      }
+    }
+
+    // Strictly validate all uploaded files before proceeding
+    for (const f of rawFilesList) {
+      const expectedChecksum = clientChecksumsMap[f.originalname];
+      const integrity = verifyAndValidateUploadedFile(f, {
+        expectedChecksum
+      });
+
+      if (!integrity.valid) {
+        // Clean up all uploaded files
+        rawFilesList.forEach((fileToClean) => cleanupFile(fileToClean.path));
+        throw new AppError(integrity.error || `فشل التحقق من سلامة الملف (${f.originalname})`, 400, 'FILE_INTEGRITY_FAILED');
+      }
     }
 
     const identityFiles: Express.Multer.File[] = rawFilesList.filter(
@@ -565,9 +604,15 @@ export const downloadPublicAttachment = async (req: Request, res: Response, next
     const fullPath = path.resolve(process.cwd(), env.UPLOAD_DIR, safeFileName);
 
     if (!fs.existsSync(fullPath)) {
-      const uploadDir = path.resolve(process.cwd(), env.UPLOAD_DIR);
-      if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-      fs.writeFileSync(fullPath, `CivicFlow Public Document: ${attachment.name}\nType: ${attachment.documentType}\nUploaded At: ${attachment.uploadedAt.toISOString()}`);
+      const fallbackDemoPath = path.resolve(process.cwd(), 'uploads', safeFileName);
+      if (fs.existsSync(fallbackDemoPath)) {
+        return res.download(fallbackDemoPath, attachment.name);
+      }
+      throw new AppError(
+        `ملف المستند (${attachment.name}) غير متوفر حالياً على الخادم للتحميل.`,
+        404,
+        'FILE_NOT_FOUND_ON_DISK'
+      );
     }
 
     return res.download(fullPath, attachment.name);

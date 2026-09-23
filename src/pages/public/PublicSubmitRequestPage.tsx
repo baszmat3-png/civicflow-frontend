@@ -22,6 +22,7 @@ import { publicService, PublicSubmissionResult } from '../../services/publicServ
 import { authService } from '../../services/authService';
 import { City, Ministry, RequestTypeEntity } from '../../types';
 import { IRAQI_GOVERNORATES } from '../../constants/iraqGovernorates';
+import { calculateFileSha256, validateFileBeforeUpload } from '../../utils/fileChecksum';
 
 interface UploadItem {
   id: string;
@@ -182,6 +183,23 @@ export const PublicSubmitRequestPage: React.FC = () => {
 
     try {
       setIsSubmitting(true);
+
+      // Validate all files and compute SHA-256 checksums
+      const checksumsMap: Record<string, string> = {};
+      for (const item of uploadFiles) {
+        const check = validateFileBeforeUpload(item.file, 50);
+        if (!check.valid) {
+          setErrorMessage(check.error || 'أحد الملفات المرفقة غير صالح');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          setIsSubmitting(false);
+          return;
+        }
+        const hash = await calculateFileSha256(item.file);
+        if (hash) {
+          checksumsMap[item.file.name] = hash;
+        }
+      }
+
       const formData = new FormData();
       formData.append('name', name.trim());
       formData.append('phone', phone.trim());
@@ -206,8 +224,18 @@ export const PublicSubmitRequestPage: React.FC = () => {
       formData.append('title', title.trim() || 'طلب مراجع عبر البوابة الإلكترونية');
       if (details.trim()) formData.append('details', details.trim());
 
-      // Append classified files
+      // Send checksums map for backend verification
+      if (Object.keys(checksumsMap).length > 0) {
+        formData.append('fileChecksums', JSON.stringify(checksumsMap));
+      }
+
+      // Append classified files (deduplicating by file object)
+      const appendedFiles = new Set<string>();
       uploadFiles.forEach((item) => {
+        const fileKey = `${item.file.name}_${item.file.size}_${item.documentType}`;
+        if (appendedFiles.has(fileKey)) return;
+        appendedFiles.add(fileKey);
+
         if (item.documentType === 'IDENTITY') {
           formData.append('identityFiles', item.file);
         } else {
