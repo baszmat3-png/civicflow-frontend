@@ -39,7 +39,7 @@
    - **Root Directory**: `backend`
    - **Environment / Runtime**: `Node`
    - **Build Command**: `npm install && npm run build`
-   - **Start Command**: `npx prisma db push && npm run start`
+   - **Start Command**: `npx prisma migrate deploy && npm run start`
    - **Plan**: `Free`
 3. في قسم **Environment Variables** (المتغيرات البيئية)، أضف:
    - `DATABASE_URL`: *(الصق رابط قاعدة البيانات من الخطوة 1)*

@@ -9,7 +9,7 @@ services:
     plan: free
     region: frankfurt
     buildCommand: npm install && npm run build
-    startCommand: npx prisma db push && npm run start
+    startCommand: npx prisma migrate deploy && npm run start
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
