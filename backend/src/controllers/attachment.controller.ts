@@ -79,6 +79,16 @@ export const addAttachment = async (req: Request, res: Response, next: NextFunct
     let fileType = bodyType || (file ? getFileTypeLabel(file.mimetype || file.originalname) : 'PDF');
     let mimeType = file ? file.mimetype : 'application/pdf';
 
+    // Read binary file data into Buffer for permanent PostgreSQL persistence
+    let fileBuffer: Buffer | null = null;
+    if (file) {
+      if (file.buffer) {
+        fileBuffer = file.buffer;
+      } else if (file.path && fs.existsSync(file.path)) {
+        fileBuffer = fs.readFileSync(file.path);
+      }
+    }
+
     const newAttachment = await prisma.$transaction(async (tx) => {
       const att = await tx.requestAttachment.create({
         data: {
@@ -92,6 +102,7 @@ export const addAttachment = async (req: Request, res: Response, next: NextFunct
           documentType,
           isPublic,
           isIdentity,
+          fileData: fileBuffer || undefined,
           uploadedBy
         }
       });
@@ -130,7 +141,7 @@ export const addAttachment = async (req: Request, res: Response, next: NextFunct
       url: `/uploads/${newAttachment.filePath}`
     };
 
-    return sendSuccess(res, formatted, 'تم رفع المستند والتحقق من سلامته بنجاح', 201);
+    return sendSuccess(res, formatted, 'تم رفع المستند وحفظه بشكل دائم بنجاح', 201);
   } catch (error) {
     if (req.file?.path) cleanupFile(req.file.path);
     next(error);
@@ -153,24 +164,37 @@ export const downloadAttachment = async (req: Request, res: Response, next: Next
       throw new AppError('المستند المطلوب غير موجود في المنظومة', 404, 'ATTACHMENT_NOT_FOUND');
     }
 
+    // 1. Direct from PostgreSQL Binary Storage (100% permanent, never disappears)
+    if (attachment.fileData && attachment.fileData.length > 0) {
+      const buffer = Buffer.from(attachment.fileData);
+      const mime = attachment.mimeType || 'application/octet-stream';
+      const encodedName = encodeURIComponent(attachment.name);
+
+      res.setHeader('Content-Type', mime);
+      res.setHeader('Content-Length', buffer.length);
+      res.setHeader('Content-Disposition', `attachment; filename="${encodedName}"; filename*=UTF-8''${encodedName}`);
+      return res.send(buffer);
+    }
+
+    // 2. Fallback to local uploads directory if available
     const safeFileName = path.basename(attachment.filePath);
     const fullPath = path.resolve(process.cwd(), env.UPLOAD_DIR, safeFileName);
 
-    if (!fs.existsSync(fullPath)) {
-      // Check if it exists in base demo uploads
-      const fallbackDemoPath = path.resolve(process.cwd(), 'uploads', safeFileName);
-      if (fs.existsSync(fallbackDemoPath)) {
-        return res.download(fallbackDemoPath, attachment.name);
-      }
-      throw new AppError(
-        `ملف المستند (${attachment.name}) غير موجود على الخادم (ربما تم تنظيف القرص المؤقت أو لم يكتمل الرفع سابقاً).`,
-        404,
-        'FILE_NOT_FOUND_ON_DISK'
-      );
+    if (fs.existsSync(fullPath)) {
+      return res.download(fullPath, attachment.name);
     }
 
-    // Send the binary file cleanly without corruption
-    return res.download(fullPath, attachment.name);
+    // 3. Fallback to base demo uploads
+    const fallbackDemoPath = path.resolve(process.cwd(), 'uploads', safeFileName);
+    if (fs.existsSync(fallbackDemoPath)) {
+      return res.download(fallbackDemoPath, attachment.name);
+    }
+
+    throw new AppError(
+      `ملف المستند (${attachment.name}) غير متوفر حالياً على الخادم.`,
+      404,
+      'FILE_NOT_FOUND_ON_DISK'
+    );
   } catch (error) {
     next(error);
   }

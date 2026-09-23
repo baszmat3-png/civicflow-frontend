@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import fs from 'fs';
 import { prisma } from '../config/database.js';
 import { AppError } from '../middlewares/error.middleware.js';
 import { sendSuccess } from '../utils/apiResponse.js';
@@ -36,6 +37,15 @@ export const addOrUpdateFinalResponse = async (req: Request, res: Response, next
     const docNumber = data.documentNumber || `DOC-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const newStatus = data.deliveredToCustomer ? 'تم التسليم' : 'الإجابة جاهزة';
 
+    let fileBuffer: Buffer | null = null;
+    if (file) {
+      if (file.buffer) {
+        fileBuffer = file.buffer;
+      } else if (file.path && fs.existsSync(file.path)) {
+        fileBuffer = fs.readFileSync(file.path);
+      }
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       // Upsert final response
       const fr = await tx.finalResponse.upsert({
@@ -48,6 +58,7 @@ export const addOrUpdateFinalResponse = async (req: Request, res: Response, next
           issuedBy,
           attachmentName,
           attachmentPath,
+          attachmentData: fileBuffer || undefined,
           deliveredToCustomer: data.deliveredToCustomer,
           deliveryDate: data.deliveredToCustomer ? new Date() : null
         },
@@ -58,6 +69,7 @@ export const addOrUpdateFinalResponse = async (req: Request, res: Response, next
           issuedBy,
           attachmentName,
           attachmentPath,
+          ...(fileBuffer ? { attachmentData: fileBuffer } : {}),
           deliveredToCustomer: data.deliveredToCustomer,
           deliveryDate: data.deliveredToCustomer ? new Date() : null
         }

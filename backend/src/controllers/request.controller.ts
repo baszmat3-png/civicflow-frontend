@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import path from 'path';
+import fs from 'fs';
 import { prisma } from '../config/database.js';
 import { AppError } from '../middlewares/error.middleware.js';
 import { sendSuccess } from '../utils/apiResponse.js';
@@ -768,6 +769,15 @@ export const changeRequestStatus = async (req: Request, res: Response, next: Nex
         const attSize = file ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` : '1.5 MB';
         const attMime = file ? file.mimetype : 'application/pdf';
 
+        let fileBuffer: Buffer | null = null;
+        if (file) {
+          if (file.buffer) {
+            fileBuffer = file.buffer;
+          } else if (file.path && fs.existsSync(file.path)) {
+            fileBuffer = fs.readFileSync(file.path);
+          }
+        }
+
         const att = await tx.requestAttachment.create({
           data: {
             requestId: existing.id,
@@ -780,6 +790,7 @@ export const changeRequestStatus = async (req: Request, res: Response, next: Nex
             documentType: attachedDocType,
             isPublic: isPublicDoc,
             isIdentity: false,
+            fileData: fileBuffer || undefined,
             uploadedBy: req.user?.name || 'أحمد علي'
           }
         });

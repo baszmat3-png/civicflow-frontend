@@ -299,6 +299,7 @@ model RequestAttachment {
   documentType DocumentType @default(GENERAL)
   isPublic     Boolean      @default(false)
   isIdentity   Boolean      @default(false)
+  fileData     Bytes?
   uploadedBy   String
   uploadedAt   DateTime     @default(now())
 
@@ -316,6 +317,7 @@ model FinalResponse {
   issuedBy            String
   attachmentPath      String?
   attachmentName      String?
+  attachmentData      Bytes?
   deliveredToCustomer Boolean   @default(false)
   deliveryDate        DateTime?
 

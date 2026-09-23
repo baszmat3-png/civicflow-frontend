@@ -295,6 +295,13 @@ export const submitPublicRequest = async (req: Request, res: Response, next: Nex
       if (identityFiles.length > 0) {
         for (const idFile of identityFiles) {
           const idSize = `${(idFile.size / (1024 * 1024)).toFixed(1)} MB`;
+          let idBuffer: Buffer | null = null;
+          if (idFile.buffer) {
+            idBuffer = idFile.buffer;
+          } else if (idFile.path && fs.existsSync(idFile.path)) {
+            idBuffer = fs.readFileSync(idFile.path);
+          }
+
           await tx.requestAttachment.create({
             data: {
               requestId: newRequest.id,
@@ -307,6 +314,7 @@ export const submitPublicRequest = async (req: Request, res: Response, next: Nex
               documentType: DocumentType.IDENTITY,
               isPublic: false,
               isIdentity: true,
+              fileData: idBuffer || undefined,
               uploadedBy: data.name
             }
           });
@@ -333,6 +341,13 @@ export const submitPublicRequest = async (req: Request, res: Response, next: Nex
       if (requestFiles.length > 0) {
         for (const rFile of requestFiles) {
           const reqDocSize = `${(rFile.size / (1024 * 1024)).toFixed(1)} MB`;
+          let rBuffer: Buffer | null = null;
+          if (rFile.buffer) {
+            rBuffer = rFile.buffer;
+          } else if (rFile.path && fs.existsSync(rFile.path)) {
+            rBuffer = fs.readFileSync(rFile.path);
+          }
+
           await tx.requestAttachment.create({
             data: {
               requestId: newRequest.id,
@@ -345,6 +360,7 @@ export const submitPublicRequest = async (req: Request, res: Response, next: Nex
               documentType: DocumentType.REQUEST_DOCUMENT,
               isPublic: false,
               isIdentity: false,
+              fileData: rBuffer || undefined,
               uploadedBy: data.name
             }
           });
@@ -600,22 +616,37 @@ export const downloadPublicAttachment = async (req: Request, res: Response, next
       throw new AppError('عذراً، هذا المستند خاص وسري ولا يمكن تحميله عبر البوابة العامة للمراجعين.', 403, 'SENSITIVE_DOCUMENT_FORBIDDEN');
     }
 
+    // 1. Direct from PostgreSQL Binary Storage (100% permanent, never lost)
+    if (attachment.fileData && attachment.fileData.length > 0) {
+      const buffer = Buffer.from(attachment.fileData);
+      const mime = attachment.mimeType || 'application/octet-stream';
+      const encodedName = encodeURIComponent(attachment.name);
+
+      res.setHeader('Content-Type', mime);
+      res.setHeader('Content-Length', buffer.length);
+      res.setHeader('Content-Disposition', `attachment; filename="${encodedName}"; filename*=UTF-8''${encodedName}`);
+      return res.send(buffer);
+    }
+
+    // 2. Fallback to local uploads directory
     const safeFileName = path.basename(attachment.filePath);
     const fullPath = path.resolve(process.cwd(), env.UPLOAD_DIR, safeFileName);
 
-    if (!fs.existsSync(fullPath)) {
-      const fallbackDemoPath = path.resolve(process.cwd(), 'uploads', safeFileName);
-      if (fs.existsSync(fallbackDemoPath)) {
-        return res.download(fallbackDemoPath, attachment.name);
-      }
-      throw new AppError(
-        `ملف المستند (${attachment.name}) غير متوفر حالياً على الخادم للتحميل.`,
-        404,
-        'FILE_NOT_FOUND_ON_DISK'
-      );
+    if (fs.existsSync(fullPath)) {
+      return res.download(fullPath, attachment.name);
     }
 
-    return res.download(fullPath, attachment.name);
+    // 3. Fallback to demo uploads
+    const fallbackDemoPath = path.resolve(process.cwd(), 'uploads', safeFileName);
+    if (fs.existsSync(fallbackDemoPath)) {
+      return res.download(fallbackDemoPath, attachment.name);
+    }
+
+    throw new AppError(
+      `ملف المستند (${attachment.name}) غير متوفر حالياً على الخادم للتحميل.`,
+      404,
+      'FILE_NOT_FOUND_ON_DISK'
+    );
   } catch (error) {
     next(error);
   }
