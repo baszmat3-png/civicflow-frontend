@@ -3,7 +3,9 @@ import {
   trackPublicRequest,
   submitPublicRequest,
   getPublicFormData,
-  downloadPublicAttachment
+  downloadPublicAttachment,
+  requestTrackingOtp,
+  verifyTrackingOtp
 } from '../controllers/public.controller.js';
 import { publicLimiter } from '../middlewares/rateLimit.middleware.js';
 import { upload } from '../middlewares/upload.middleware.js';
@@ -29,6 +31,10 @@ publicRouter.post(
 
 // Public Citizen Tracking
 publicRouter.get('/track/:tokenOrNumber', publicLimiter, trackPublicRequest);
+
+// Secure OTP-based Citizen Tracking
+publicRouter.post('/track/request-otp', publicLimiter, requestTrackingOtp);
+publicRouter.post('/track/verify-otp', publicLimiter, verifyTrackingOtp);
 
 // Download Publicly Permitted Stage Documents ONLY
 publicRouter.get('/attachments/:id/download', publicLimiter, downloadPublicAttachment);

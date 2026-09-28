@@ -138,5 +138,30 @@ export const requestService = {
     }
 
     return apiClient.post<FinalResponse>(`/requests/${requestId}/final-response`, response);
+  },
+
+  // Duplicate Check
+  checkDuplicate: async (params: {
+    phone?: string;
+    nationalId?: string;
+    customerId?: string;
+    ministryId?: string;
+    requestType?: string;
+    daysWindow?: number;
+  }): Promise<{ isDuplicate: boolean; count?: number; message?: string | null; duplicates?: any[] }> => {
+    const query = new URLSearchParams();
+    if (params.phone) query.append('phone', params.phone);
+    if (params.nationalId) query.append('nationalId', params.nationalId);
+    if (params.customerId) query.append('customerId', params.customerId);
+    if (params.ministryId) query.append('ministryId', params.ministryId);
+    if (params.requestType) query.append('requestType', params.requestType);
+    if (params.daysWindow) query.append('daysWindow', String(params.daysWindow));
+
+    return apiClient.get<any>(`/requests/check-duplicate?${query.toString()}`);
+  },
+
+  // Bulk Import
+  bulkImport: async (items: any[]): Promise<{ successCount: number; failCount: number; errors: string[] }> => {
+    return apiClient.post<any>('/requests/bulk-import', { items });
   }
 };

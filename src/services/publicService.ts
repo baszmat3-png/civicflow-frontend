@@ -17,6 +17,40 @@ export interface PublicSubmissionResult {
   createdAt: string;
 }
 
+export interface OtpRequestResult {
+  requestNumber: string;
+  customerName: string;
+  maskedPhone: string;
+  expiresInMinutes: number;
+}
+
+export interface AppointmentSlotItem {
+  date: string;
+  dayName: string;
+  targetPerson: string;
+  slots: string[];
+}
+
+export interface TransparencyStats {
+  totalRequests: number;
+  completedTotal: number;
+  completedThisMonth: number;
+  inProgressTotal: number;
+  completionRate: number;
+  averageSlaDays: number;
+  citizenSatisfactionScore: number;
+  totalRatingsCount: number;
+  ministryStats: Array<{
+    id: string;
+    name: string;
+    code: string;
+    slaDays: number;
+    totalRequests: number;
+    completedRequests: number;
+    completionRate: number;
+  }>;
+}
+
 export const publicService = {
   // Get active dropdown data for public submission
   getFormData: async (): Promise<PublicFormDataResponse> => {
@@ -31,11 +65,71 @@ export const publicService = {
   },
 
   // Track request publicly by requestNumber or trackingToken
-  trackRequest: async (tokenOrNumber: string): Promise<Partial<RequestItem> & { isCompleted?: boolean; stageDocuments?: any[] }> => {
-    return apiClient.get<Partial<RequestItem> & { isCompleted?: boolean; stageDocuments?: any[] }>(
+  trackRequest: async (tokenOrNumber: string): Promise<any> => {
+    return apiClient.get<any>(
       `/public/track/${encodeURIComponent(tokenOrNumber)}`,
       { skipAuth: true }
     );
+  },
+
+  // Secure OTP Flow for Citizen Tracking
+  requestTrackingOtp: async (tokenOrNumber: string): Promise<OtpRequestResult> => {
+    return apiClient.post<OtpRequestResult>(
+      '/public/track/request-otp',
+      { tokenOrNumber },
+      { skipAuth: true }
+    );
+  },
+
+  verifyTrackingOtp: async (tokenOrNumber: string, otp: string): Promise<any> => {
+    return apiClient.post<any>(
+      '/public/track/verify-otp',
+      { tokenOrNumber, otp },
+      { skipAuth: true }
+    );
+  },
+
+  // Appointments (Public Booking)
+  getAppointmentSlots: async (targetPerson: string = 'DEPUTY'): Promise<{ targetPerson: string; targetPersonTitle: string; availableDates: AppointmentSlotItem[] }> => {
+    return apiClient.get<{ targetPerson: string; targetPersonTitle: string; availableDates: AppointmentSlotItem[] }>(
+      `/appointments/public/slots?targetPerson=${targetPerson}`,
+      { skipAuth: true }
+    );
+  },
+
+  bookAppointment: async (data: {
+    customerName: string;
+    customerPhone: string;
+    customerNationalId?: string;
+    targetPerson: string;
+    appointmentDate: string;
+    timeSlot: string;
+    purpose: string;
+    notes?: string;
+  }): Promise<any> => {
+    return apiClient.post<any>('/appointments/public/book', data, { skipAuth: true });
+  },
+
+  // Citizen Ratings (Public)
+  getRatings: async (): Promise<{ averageScore: number; totalRatings: number; ratings: any[] }> => {
+    return apiClient.get<{ averageScore: number; totalRatings: number; ratings: any[] }>('/ratings/public', {
+      skipAuth: true
+    });
+  },
+
+  submitRating: async (data: {
+    requestNumber?: string;
+    rating: number;
+    comment?: string;
+    customerName?: string;
+    customerPhone?: string;
+  }): Promise<any> => {
+    return apiClient.post<any>('/ratings/public/submit', data, { skipAuth: true });
+  },
+
+  // Transparency Portal (Public Stats)
+  getTransparencyStats: async (): Promise<TransparencyStats> => {
+    return apiClient.get<TransparencyStats>('/transparency/public', { skipAuth: true });
   },
 
   downloadAttachmentUrl: (attachmentId: string): string => {

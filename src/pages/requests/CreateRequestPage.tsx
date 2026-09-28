@@ -128,6 +128,47 @@ export const CreateRequestPage: React.FC = () => {
   // Selected existing customer helper
   const selectedCustomer = customers.find((c) => c.id === selectedCustomerId);
 
+  // Duplicate Check
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+  const [duplicateList, setDuplicateList] = useState<any[]>([]);
+
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      try {
+        const targetPhone = customerMode === 'existing' ? selectedCustomer?.phone : custPhone;
+        const targetNationalId = customerMode === 'existing' ? selectedCustomer?.nationalId : custNationalId;
+        const targetCustId = customerMode === 'existing' ? selectedCustomerId : undefined;
+
+        if (!targetPhone && !targetNationalId && !targetCustId) {
+          setDuplicateWarning(null);
+          setDuplicateList([]);
+          return;
+        }
+
+        const res = await requestService.checkDuplicate({
+          phone: targetPhone,
+          nationalId: targetNationalId,
+          customerId: targetCustId,
+          ministryId: ministryId || undefined,
+          requestType: requestType || undefined,
+          daysWindow: 30
+        });
+
+        if (res.isDuplicate) {
+          setDuplicateWarning(res.message || 'تنبيه: هذا المراجع لديه معاملة سابقة مسجلة لنفس الجهة خلال آخر 30 يوماً');
+          setDuplicateList(res.duplicates || []);
+        } else {
+          setDuplicateWarning(null);
+          setDuplicateList([]);
+        }
+      } catch (err) {
+        console.warn('Duplicate check error:', err);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [customerMode, selectedCustomerId, selectedCustomer, custPhone, custNationalId, ministryId, requestType]);
+
   interface UploadItem {
     id: string;
     file: File;
@@ -316,6 +357,25 @@ export const CreateRequestPage: React.FC = () => {
       </div>
 
       <div className="space-y-6">
+        {/* Duplicate Warning Alert */}
+        {duplicateWarning && (
+          <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl text-amber-900 shadow-sm space-y-2 animate-in fade-in duration-200">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />
+              <strong className="text-xs">{duplicateWarning}</strong>
+            </div>
+            {duplicateList.length > 0 && (
+              <div className="flex flex-wrap gap-2 text-[11px] pt-1 border-t border-amber-200">
+                {duplicateList.map((d: any) => (
+                  <span key={d.id} className="bg-white/80 px-2.5 py-1 rounded-lg border border-amber-200 font-mono">
+                    #{d.requestNumber} - {d.title} ({d.status}) - {d.createdAt}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* SECTION 1: Customer Information */}
         <Card>
           <CardHeader className="bg-slate-50/70">

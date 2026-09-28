@@ -16,7 +16,10 @@ import {
   ChevronLeft,
   ShieldAlert,
   Flame,
-  Plus
+  Plus,
+  Calendar,
+  Send,
+  Inbox
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -45,6 +48,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, setIsCollapsed })
         </span>
       ) : undefined
     },
+    { name: 'المواعيد والمقابلات', path: '/appointments', icon: <Calendar className="w-5 h-5" />, module: 'الطلبات' },
+    { name: 'سجل الصادر', path: '/registry/outgoing', icon: <Send className="w-5 h-5" />, module: 'الطلبات' },
+    { name: 'سجل الوارد', path: '/registry/incoming', icon: <Inbox className="w-5 h-5" />, module: 'الطلبات' },
     { name: 'المراجعون', path: '/customers', icon: <Users className="w-5 h-5" />, module: 'المراجعون' },
     { name: 'الوزارات والجهات', path: '/ministries', icon: <Building2 className="w-5 h-5" />, module: 'الوزارات' },
     { name: 'الموظفون', path: '/employees', icon: <UserCheck className="w-5 h-5" />, module: 'الموظفون' },

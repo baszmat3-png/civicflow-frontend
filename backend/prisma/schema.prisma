@@ -22,6 +22,7 @@ enum OtpPurpose {
   VERIFY_EMAIL
   RESET_PASSWORD
   ACCOUNT_ACTIVATION
+  PUBLIC_TRACKING
 }
 
 enum CustomerStatus {
@@ -53,6 +54,8 @@ model User {
   department           String?
   status               UserStatus             @default(ACTIVE)
   avatarUrl            String?
+  assignedMinistries   String[]               @default([])
+  isAutoAssignEnabled  Boolean                @default(true)
   lastLogin            DateTime?
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
@@ -199,6 +202,8 @@ model Ministry {
 
   requests      Request[]
   slaSetting    SLASetting?
+  outgoingLetters OutgoingLetter[]
+  incomingLetters IncomingLetter[]
 
   @@map("ministries")
 }
@@ -251,6 +256,7 @@ model Request {
   attachments            RequestAttachment[]
   statusHistory          RequestStatusHistory[]
   finalResponse          FinalResponse?
+  citizenRatings         CitizenRating[]
   notifications          Notification[]
 
   createdAt              DateTime               @default(now())
@@ -409,4 +415,157 @@ model AuditLog {
   createdAt     DateTime @default(now())
 
   @@map("audit_logs")
+}
+
+// ----------------------------------------------------
+// 1. APPOINTMENTS MANAGEMENT (حجز المواعيد للمراجعين)
+// ----------------------------------------------------
+model Appointment {
+  id                  String   @id @default(uuid())
+  appointmentNumber   String   @unique
+  customerName        String
+  customerPhone       String
+  customerNationalId  String?
+  targetPerson        String   @default("DEPUTY") // DEPUTY (النائب), OFFICE_DIRECTOR (مدير المكتب)
+  appointmentDate     DateTime
+  timeSlot            String   // e.g. "10:00 - 10:30"
+  purpose             String   // موضوع المقابلة
+  notes               String?
+  status              String   @default("PENDING") // PENDING, CONFIRMED, REJECTED, COMPLETED, CANCELLED
+  adminNotes          String?
+  reminderSent        Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([appointmentNumber])
+  @@index([customerPhone])
+  @@index([appointmentDate])
+  @@index([status])
+  @@map("appointments")
+}
+
+model AppointmentSchedule {
+  id                  String   @id @default(uuid())
+  targetPerson        String   @default("DEPUTY") // DEPUTY / OFFICE_DIRECTOR
+  dayOfWeek           Int      // 0 = Sunday, 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday, 6 = Saturday
+  dayName             String   // الأحد, الإثنين, ...
+  isWorkingDay        Boolean  @default(true)
+  startTime           String   @default("09:00")
+  endTime             String   @default("14:00")
+  slotDurationMinutes Int      @default(30)
+  maxPerSlot          Int      @default(1)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([targetPerson, dayOfWeek])
+  @@map("appointment_schedules")
+}
+
+// ----------------------------------------------------
+// 2. CITIZEN SATISFACTION RATINGS (تقييم رضا المراجعين)
+// ----------------------------------------------------
+model CitizenRating {
+  id             String   @id @default(uuid())
+  requestId      String?
+  request        Request? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  requestNumber  String?
+  customerName   String
+  customerPhone  String?
+  rating         Int      // 1 to 5 stars
+  comment        String?
+  isApproved     Boolean  @default(true)
+  isPublic       Boolean  @default(true)
+  isDeleted      Boolean  @default(false)
+  adminNote      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([requestId])
+  @@index([rating])
+  @@index([isApproved])
+  @@map("citizen_ratings")
+}
+
+// ----------------------------------------------------
+// 3. OUTGOING & INCOMING ARCHIVE (الصادر والوارد)
+// ----------------------------------------------------
+model RegistryEntity {
+  id              String           @id @default(uuid())
+  name            String           @unique
+  type            String           @default("GOVERNMENT") // MINISTRY, GOVERNMENT, JUDICIAL, PRIVATE, OTHER
+  code            String?
+  phone           String?
+  email           String?
+  address         String?
+  status          UserStatus       @default(ACTIVE)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  outgoingLetters OutgoingLetter[]
+  incomingLetters IncomingLetter[]
+
+  @@map("registry_entities")
+}
+
+model OutgoingLetter {
+  id                 String          @id @default(uuid())
+  letterNumber       String          @unique // رقم الكتاب الصادر (العدد)
+  issueDate          DateTime        @default(now()) // تاريخ الكتاب
+  subject            String          // عنوان / موضوع الكتاب
+  recipientEntityId  String?
+  recipientEntity    RegistryEntity? @relation(fields: [recipientEntityId], references: [id], onDelete: SetNull)
+  recipientName      String?         // اسم الجهة في حال كانت حرة
+  ministryId         String?
+  ministry           Ministry?       @relation(fields: [ministryId], references: [id], onDelete: SetNull)
+  citizenName        String?         // صاحب الشأن
+  citizenPhone       String?
+  summary            String?
+  notes              String?
+  fileName           String?
+  fileSize           String?
+  mimeType           String?
+  fileData           Bytes?          // Safe permanent DB storage
+  status             String          @default("SENT") // DRAFT, SENT, ARCHIVED
+  createdById        String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@index([letterNumber])
+  @@index([issueDate])
+  @@index([recipientEntityId])
+  @@index([ministryId])
+  @@map("outgoing_letters")
+}
+
+model IncomingLetter {
+  id                   String          @id @default(uuid())
+  incomingNumber       String          @unique // رقم الوارد الداخلي في المنظومة
+  externalLetterNumber String?         // رقم كتاب الجهة الوارد
+  receiveDate          DateTime        @default(now()) // تاريخ الورود
+  subject              String          // عنوان / موضوع الكتاب
+  senderEntityId       String?
+  senderEntity         RegistryEntity? @relation(fields: [senderEntityId], references: [id], onDelete: SetNull)
+  senderName           String?
+  ministryId           String?
+  ministry             Ministry?       @relation(fields: [ministryId], references: [id], onDelete: SetNull)
+  citizenName          String?         // صاحب الشأن
+  citizenPhone         String?
+  summary              String?
+  actionRequired       String?         // الإجراء المطلوب
+  priority             PriorityLevel   @default(NORMAL)
+  status               String          @default("RECEIVED") // RECEIVED, IN_PROGRESS, REFERRED, COMPLETED, ARCHIVED
+  fileName             String?
+  fileSize             String?
+  mimeType             String?
+  fileData             Bytes?          // Safe permanent DB storage
+  assignedToId         String?
+  createdById          String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  @@index([incomingNumber])
+  @@index([receiveDate])
+  @@index([senderEntityId])
+  @@index([ministryId])
+  @@map("incoming_letters")
 }

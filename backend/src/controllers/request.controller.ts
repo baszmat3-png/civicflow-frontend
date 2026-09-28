@@ -11,6 +11,8 @@ import { generateNextRequestNumber } from '../services/requestNumber.service.js'
 import { generateNextCustomerNumber } from '../services/customerNumber.service.js';
 import { whatsappNotificationService } from '../services/whatsapp/whatsappNotification.service.js';
 import { verifyAndValidateUploadedFile, cleanupFile } from '../utils/fileIntegrity.js';
+import { autoAssignRequestToEmployee } from '../services/autoAssign.service.js';
+import { checkDuplicateRequest } from '../services/duplicateDetector.service.js';
 
 const createRequestSchema = z.object({
   customerId: z.string().min(1, 'المراجع مطلوب'),
@@ -1000,6 +1002,131 @@ export const deleteRequest = async (req: Request, res: Response, next: NextFunct
     });
 
     return sendSuccess(res, null, 'تم حذف المعاملة بنجاح');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const checkDuplicate = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { phone, nationalId, customerId, ministryId, requestType, daysWindow } = req.query;
+    const result = await checkDuplicateRequest({
+      phone: phone ? String(phone) : undefined,
+      nationalId: nationalId ? String(nationalId) : undefined,
+      customerId: customerId ? String(customerId) : undefined,
+      ministryId: ministryId ? String(ministryId) : undefined,
+      requestType: requestType ? String(requestType) : undefined,
+      daysWindow: daysWindow ? Number(daysWindow) : 30
+    });
+    return sendSuccess(res, result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const bulkImportRequests = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { items } = req.body;
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new AppError('يرجى تقديم قائمة السجلات المراد استيرادها', 400, 'ITEMS_REQUIRED');
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+    const errors: string[] = [];
+
+    for (const item of items) {
+      try {
+        const custName = (item.customerName || item.name || 'مراجع').trim();
+        const custPhone = (item.customerPhone || item.phone || `077${Date.now().toString().slice(-8)}`).trim();
+        const nationalId = item.nationalId ? String(item.nationalId).trim() : null;
+        const address = item.address ? String(item.address).trim() : '';
+
+        // Upsert Customer
+        let customer = await prisma.customer.findFirst({
+          where: {
+            OR: [
+              { phone: custPhone },
+              ...(nationalId ? [{ nationalId }] : [])
+            ]
+          }
+        });
+
+        if (!customer) {
+          const customerNumber = await generateNextCustomerNumber(prisma);
+          customer = await prisma.customer.create({
+            data: {
+              customerNumber,
+              name: custName,
+              phone: custPhone,
+              nationalId,
+              address,
+              status: 'ACTIVE'
+            }
+          });
+        }
+
+        // Match Ministry
+        let ministry = null;
+        if (item.ministryName || item.ministryId) {
+          ministry = await prisma.ministry.findFirst({
+            where: {
+              OR: [
+                { id: item.ministryId || undefined },
+                { name: { contains: item.ministryName || '', mode: 'insensitive' } }
+              ]
+            }
+          });
+        }
+        if (!ministry) {
+          ministry = await prisma.ministry.findFirst({ where: { status: 'ACTIVE' } });
+        }
+        if (!ministry) {
+          throw new Error('لا توجد جهة/وزارة متاحة في النظام');
+        }
+
+        // Calculate SLA
+        const slaResult = await calculateRequestSLA(ministry.id, PriorityLevel.NORMAL, new Date());
+        const requestNumber = await generateNextRequestNumber();
+        const autoAssignedId = await autoAssignRequestToEmployee(ministry.id);
+
+        await prisma.request.create({
+          data: {
+            requestNumber,
+            customerId: customer.id,
+            ministryId: ministry.id,
+            title: (item.title || `معاملة مراجع: ${custName}`).trim(),
+            details: item.details || '',
+            requestType: item.requestType || 'طلب عام',
+            status: 'استلام الطلب',
+            priority: PriorityLevel.NORMAL,
+            assignedEmployeeId: autoAssignedId,
+            receiveDate: item.receiveDate ? new Date(item.receiveDate) : new Date(),
+            expectedCompletionDate: slaResult.expectedCompletionDate,
+            deadlineStatus: slaResult.deadlineStatus,
+            daysRemainingOrOverdue: slaResult.daysRemainingOrOverdue,
+            statusHistory: {
+              create: {
+                newStatus: 'استلام الطلب',
+                employeeName: req.user?.name || 'استيراد جماعي',
+                note: 'تم إدراج المعاملة عبر عملية الاستيراد الجماعي Excel'
+              }
+            }
+          }
+        });
+
+        successCount++;
+      } catch (rowErr: any) {
+        failCount++;
+        errors.push(`خطأ في السطر (${item.customerName || item.name || 'بدون اسم'}): ${rowErr.message}`);
+      }
+    }
+
+    return sendSuccess(
+      res,
+      { successCount, failCount, errors },
+      `تم استيراد ${successCount} معاملة بنجاح${failCount > 0 ? ` وفشل ${failCount}` : ''}`
+    );
   } catch (error) {
     next(error);
   }

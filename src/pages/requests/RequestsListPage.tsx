@@ -13,6 +13,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { ChangeStatusModal } from '../../components/request/ChangeStatusModal';
 import { BulkChangeStatusModal } from '../../components/request/BulkChangeStatusModal';
 import { ExportColumnModal } from '../../components/common/ExportColumnModal';
+import { BulkImportModal } from '../../components/requests/BulkImportModal';
 import { RequestItem, RequestStatus, RequestPriority } from '../../types';
 import { reportService } from '../../services/reportService';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -72,6 +73,7 @@ export const RequestsListPage: React.FC = () => {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
 
   // Export Modal State
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -372,14 +374,25 @@ export const RequestsListPage: React.FC = () => {
             </>
           )}
           {canCreateRequest && (
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => navigate('/requests/new')}
-              icon={<Plus className="w-4 h-4" />}
-            >
-              + إضافة طلب
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                size="md"
+                onClick={() => setIsBulkImportOpen(true)}
+                className="text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                icon={<FileSpreadsheet className="w-4 h-4 text-emerald-600" />}
+              >
+                استيراد من Excel
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => navigate('/requests/new')}
+                icon={<Plus className="w-4 h-4" />}
+              >
+                + إضافة طلب
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -914,6 +927,13 @@ export const RequestsListPage: React.FC = () => {
         onExport={handleExport}
         defaultFormat={exportFormat}
         isExporting={isExporting}
+      />
+
+      {/* Bulk Import Modal */}
+      <BulkImportModal
+        isOpen={isBulkImportOpen}
+        onClose={() => setIsBulkImportOpen(false)}
+        onSuccess={() => window.location.reload()}
       />
     </div>
   );

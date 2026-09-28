@@ -14,6 +14,10 @@ import { publicRouter } from './public.routes.js';
 import { cityRouter } from './city.routes.js';
 import { requestTypeRouter } from './requestType.routes.js';
 import { backupRouter } from './backup.routes.js';
+import { appointmentRouter } from './appointment.routes.js';
+import { ratingRouter } from './rating.routes.js';
+import { registryRouter } from './registry.routes.js';
+import { transparencyRouter } from './transparency.routes.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
 import { requirePermission } from '../middlewares/rbac.middleware.js';
 import { sendSuccess } from '../utils/apiResponse.js';
@@ -22,6 +26,7 @@ export const apiRouter = Router();
 
 // Public routes
 apiRouter.use('/public', publicRouter);
+apiRouter.use('/transparency', transparencyRouter);
 
 // Core Modules
 apiRouter.use('/auth', authRouter);
@@ -30,6 +35,9 @@ apiRouter.use('/ministries', ministryRouter);
 apiRouter.use('/cities', cityRouter);
 apiRouter.use('/request-types', requestTypeRouter);
 apiRouter.use('/requests', requestRouter);
+apiRouter.use('/appointments', appointmentRouter);
+apiRouter.use('/ratings', ratingRouter);
+apiRouter.use('/registry', registryRouter);
 apiRouter.use('/users', userRouter);
 apiRouter.use('/roles', roleRouter);
 apiRouter.use('/notifications', notificationRouter);

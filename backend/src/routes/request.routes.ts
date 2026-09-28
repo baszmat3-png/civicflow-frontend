@@ -6,7 +6,9 @@ import {
   updateRequest,
   changeRequestStatus,
   assignRequest,
-  deleteRequest
+  deleteRequest,
+  checkDuplicate,
+  bulkImportRequests
 } from '../controllers/request.controller.js';
 import {
   addAttachment,
@@ -24,6 +26,10 @@ import { upload } from '../middlewares/upload.middleware.js';
 export const requestRouter = Router();
 
 requestRouter.use(authenticate);
+
+// Duplicate check & Bulk Import
+requestRouter.get('/check-duplicate', requirePermission('requests.view'), checkDuplicate);
+requestRouter.post('/bulk-import', requirePermission('requests.create'), bulkImportRequests);
 
 // Main Request CRUD
 requestRouter.get('/', requirePermission('requests.view'), getRequests);

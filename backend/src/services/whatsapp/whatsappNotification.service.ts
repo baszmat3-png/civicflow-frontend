@@ -219,6 +219,23 @@ export const whatsappNotificationService = {
       console.warn('⚠️ WhatsApp OTP notification skipped:', err);
       return { success: false };
     }
+  },
+
+  /**
+   * إرسال رسالة واتساب مخصصة مباشرة
+   */
+  sendDirectWhatsApp: async (to: string, message: string, requestId?: string) => {
+    if (!to) return { success: false };
+    try {
+      return await whatsAppProvider.sendMessage({
+        to,
+        message,
+        requestId
+      });
+    } catch (err) {
+      console.warn('⚠️ WhatsApp direct notification skipped:', err);
+      return { success: false };
+    }
   }
 };
 

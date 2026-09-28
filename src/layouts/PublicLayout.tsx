@@ -24,7 +24,21 @@ export const PublicLayout: React.FC = () => {
               className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg text-xs font-bold text-slate-700 hover:text-blue-600 hover:bg-slate-100 transition"
             >
               <Search className="w-3.5 h-3.5 text-blue-600" />
-              <span>استعلام عن معاملة</span>
+              <span>استعلام</span>
+            </Link>
+
+            <Link
+              to="/appointments/book"
+              className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg text-xs font-bold text-slate-700 hover:text-blue-600 hover:bg-slate-100 transition"
+            >
+              <span>حجز موعد</span>
+            </Link>
+
+            <Link
+              to="/transparency"
+              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg text-xs font-bold text-slate-700 hover:text-blue-600 hover:bg-slate-100 transition"
+            >
+              <span>لوحة الشفافية</span>
             </Link>
 
             <Link

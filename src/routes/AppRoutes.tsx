@@ -64,11 +64,21 @@ import { NotificationSettingsPage } from '../pages/settings/NotificationSettings
 import { WhatsAppSettingsPage } from '../pages/settings/WhatsAppSettingsPage';
 import { WhatsAppTemplatesPage } from '../pages/settings/WhatsAppTemplatesPage';
 import { BackupSettingsPage } from '../pages/settings/BackupSettingsPage';
+import { AppointmentSettingsPage } from '../pages/settings/AppointmentSettingsPage';
+import { RatingModerationPage } from '../pages/settings/RatingModerationPage';
+import { RegistryEntitiesSettingsPage } from '../pages/settings/RegistryEntitiesSettingsPage';
+
+// Appointments & Registry Pages
+import { AppointmentsListPage } from '../pages/appointments/AppointmentsListPage';
+import { OutgoingLettersPage } from '../pages/registry/OutgoingLettersPage';
+import { IncomingLettersPage } from '../pages/registry/IncomingLettersPage';
 
 // Public Pages
 import { PublicTrackPage } from '../pages/public/PublicTrackPage';
 import { PublicTrackResultPage } from '../pages/public/PublicTrackResultPage';
 import { PublicSubmitRequestPage } from '../pages/public/PublicSubmitRequestPage';
+import { PublicAppointmentPage } from '../pages/public/PublicAppointmentPage';
+import { PublicTransparencyPage } from '../pages/public/PublicTransparencyPage';
 import { NotFoundPage } from '../pages/public/NotFoundPage';
 import { MaintenancePage } from '../pages/public/MaintenancePage';
 import { useMaintenance } from '../context/MaintenanceContext';
@@ -93,6 +103,8 @@ export const AppRoutes: React.FC = () => {
         <Route path="/track/:requestNumber" element={<PublicTrackResultPage />} />
         <Route path="/submit-request" element={<PublicSubmitRequestPage />} />
         <Route path="/public/submit-request" element={<PublicSubmitRequestPage />} />
+        <Route path="/appointments/book" element={<PublicAppointmentPage />} />
+        <Route path="/transparency" element={<PublicTransparencyPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
 
@@ -139,6 +151,34 @@ export const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute permission={PERMISSIONS.REQUESTS_UPDATE}>
               <EditRequestPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Appointments */}
+        <Route
+          path="/appointments"
+          element={
+            <ProtectedRoute permission={PERMISSIONS.REQUESTS_VIEW}>
+              <AppointmentsListPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Registry (الصادر والوارد) */}
+        <Route
+          path="/registry/outgoing"
+          element={
+            <ProtectedRoute permission={PERMISSIONS.REQUESTS_VIEW}>
+              <OutgoingLettersPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/registry/incoming"
+          element={
+            <ProtectedRoute permission={PERMISSIONS.REQUESTS_VIEW}>
+              <IncomingLettersPage />
             </ProtectedRoute>
           }
         />
@@ -385,6 +425,30 @@ export const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute permission={PERMISSIONS.SETTINGS_MANAGE}>
               <BackupSettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings/appointments"
+          element={
+            <ProtectedRoute permission={PERMISSIONS.SETTINGS_MANAGE}>
+              <AppointmentSettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings/ratings"
+          element={
+            <ProtectedRoute permission={PERMISSIONS.SETTINGS_MANAGE}>
+              <RatingModerationPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings/registry-entities"
+          element={
+            <ProtectedRoute permission={PERMISSIONS.SETTINGS_MANAGE}>
+              <RegistryEntitiesSettingsPage />
             </ProtectedRoute>
           }
         />

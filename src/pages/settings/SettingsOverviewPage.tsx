@@ -18,7 +18,8 @@ import {
   FileCode2,
   MapPin,
   Layers,
-  Database
+  Database,
+  Building2
 } from 'lucide-react';
 
 export const SettingsOverviewPage: React.FC = () => {
@@ -38,6 +39,24 @@ export const SettingsOverviewPage: React.FC = () => {
       desc: 'تصدير واستعادة نسخة كاملة من قاعدة البيانات، وجدولة النسخ اليومي التلقائي',
       icon: <Database className="w-6 h-6 text-emerald-600" />,
       path: '/settings/backup'
+    },
+    {
+      title: 'جدول وأوقات المقابلات والمواعيد',
+      desc: 'تحديد أوقات التواجد والأيام وساعات المقابلات للنائب ومدير المكتب',
+      icon: <Clock className="w-6 h-6 text-blue-600" />,
+      path: '/settings/appointments'
+    },
+    {
+      title: 'تقييمات وآراء المراجعين',
+      desc: 'مراجعة تقييمات الـ 5 نجوم وإدارة التعليقات وحذف أو إخفاء المسيء',
+      icon: <RotateCcw className="w-6 h-6 text-amber-500" />,
+      path: '/settings/ratings'
+    },
+    {
+      title: 'الجهات والمؤسسات (الصادر والوارد)',
+      desc: 'إدارة وتصنيف الوزارات والهيئات والشركات المعتمدة في سجل الكتب',
+      icon: <Building2 className="w-6 h-6 text-purple-600" />,
+      path: '/settings/registry-entities'
     },
     {
       title: 'إدارة المدن والمحافظات',

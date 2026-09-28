@@ -12,6 +12,8 @@ import { generateNextCustomerNumber } from '../services/customerNumber.service.j
 import { whatsappNotificationService } from '../services/whatsapp/whatsappNotification.service.js';
 import { env } from '../config/env.js';
 import { verifyAndValidateUploadedFile, cleanupFile, formatBytes } from '../utils/fileIntegrity.js';
+import { hashPassword, comparePassword } from '../utils/password.js';
+import { autoAssignRequestToEmployee } from '../services/autoAssign.service.js';
 
 const optionalString = z.preprocess(
   (v) => (v === null || v === undefined || v === '' ? undefined : String(v).trim()),
@@ -263,6 +265,7 @@ export const submitPublicRequest = async (req: Request, res: Response, next: Nex
 
       // 2. Generate Request Number
       const requestNumber = await generateNextRequestNumber(tx);
+      const autoAssignedEmpId = await autoAssignRequestToEmployee(ministry.id);
 
       // 3. Create Request
       const newRequest = await tx.request.create({
@@ -272,6 +275,7 @@ export const submitPublicRequest = async (req: Request, res: Response, next: Nex
           ministryId: ministry.id,
           cityId: city?.id || null,
           requestTypeId: data.requestTypeId || null,
+          assignedEmployeeId: autoAssignedEmpId,
           title: data.title?.trim() || 'طلب مراجع عبر البوابة الإلكترونية',
           details: data.details || '',
           requestType: requestTypeName,
@@ -647,6 +651,279 @@ export const downloadPublicAttachment = async (req: Request, res: Response, next
       404,
       'FILE_NOT_FOUND_ON_DISK'
     );
+  } catch (error) {
+    next(error);
+  }
+};
+
+// -----------------------------------------------------------------
+// CITIZEN TRACKING OTP FLOW (حماية بوابة الاستعلام برمز التحقق)
+// -----------------------------------------------------------------
+export const requestTrackingOtp = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { tokenOrNumber } = req.body;
+    const cleanQuery = (tokenOrNumber || '').trim();
+    if (!cleanQuery) {
+      throw new AppError('يرجى إدخال رقم المعاملة أو رقم الهاتف', 400, 'REQUEST_NUMBER_REQUIRED');
+    }
+
+    const strippedReqNum = cleanQuery.replace(/^#/, '');
+    const numOnly = cleanQuery.replace(/[^0-9]/g, '');
+
+    const request = await prisma.request.findFirst({
+      where: {
+        OR: [
+          { requestNumber: { equals: strippedReqNum, mode: 'insensitive' } },
+          { requestNumber: { equals: `REQ-${strippedReqNum}`, mode: 'insensitive' } },
+          { publicTrackingToken: cleanQuery },
+          ...(numOnly.length >= 4 ? [
+            { customer: { phone: { contains: numOnly } } },
+            { customer: { altPhone: { contains: numOnly } } }
+          ] : [])
+        ]
+      },
+      include: {
+        customer: true,
+        ministry: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (!request || !request.customer) {
+      throw new AppError('لم يتم العثور على المعاملة المحددة بالبيانات المدخلة', 404, 'REQUEST_NOT_FOUND');
+    }
+
+    const phone = request.customer.phone;
+    if (!phone) {
+      throw new AppError('لا يوجد رقم هاتف مسجل لهذه المعاملة للتأكيد عبر الرسائل', 400, 'PHONE_NOT_REGISTERED');
+    }
+
+    // Generate 6-digit OTP
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpHash = await hashPassword(otpCode);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    const emailIdentifier = `${request.requestNumber}_${phone}`;
+
+    await prisma.otpVerification.upsert({
+      where: {
+        email_purpose: {
+          email: emailIdentifier,
+          purpose: 'PUBLIC_TRACKING'
+        }
+      },
+      create: {
+        email: emailIdentifier,
+        purpose: 'PUBLIC_TRACKING',
+        otpHash,
+        expiresAt,
+        isUsed: false,
+        attempts: 0,
+        lastSentAt: new Date()
+      },
+      update: {
+        otpHash,
+        expiresAt,
+        isUsed: false,
+        attempts: 0,
+        lastSentAt: new Date()
+      }
+    });
+
+    // Mask phone for citizen preview e.g. 0770****456
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    const maskedPhone =
+      cleanPhone.length >= 7
+        ? `${cleanPhone.slice(0, 4)}****${cleanPhone.slice(-3)}`
+        : '****' + cleanPhone.slice(-3);
+
+    // Send WhatsApp OTP to citizen's registered phone
+    try {
+      const msg = `الأخ/الأخت ${request.customer.name} المحترم،\n\nرمز التحقق الخاص بك لتتبع المعاملة رقم (${request.requestNumber}) هو:\n\n🔑 *${otpCode}*\n\nهذا الرمز صالح لمدة 10 دقائق. يُرجى إدخاله في الشاشة لإظهار تفاصيل ومستندات معاملتك.`;
+      await whatsappNotificationService.sendDirectWhatsApp(phone, msg, request.id);
+      console.log(`✅ [OTP SENT] Dispatched tracking OTP (${otpCode}) to ${phone} for ${request.requestNumber}`);
+    } catch (waErr) {
+      console.warn('⚠️ Could not dispatch WhatsApp OTP:', waErr);
+    }
+
+    return sendSuccess(
+      res,
+      {
+        requestNumber: request.requestNumber,
+        customerName: request.customer.name,
+        maskedPhone,
+        expiresInMinutes: 10
+      },
+      `تم إرسال رمز التحقق (OTP) إلى هاتفك المسجل (${maskedPhone})`
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const verifyTrackingOtp = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { tokenOrNumber, otp } = req.body;
+    const cleanQuery = (tokenOrNumber || '').trim();
+    const cleanOtp = (otp || '').trim();
+
+    if (!cleanQuery || !cleanOtp) {
+      throw new AppError('يرجى إدخال رقم المعاملة ورمز التحقق OTP', 400, 'OTP_REQUIRED');
+    }
+
+    const strippedReqNum = cleanQuery.replace(/^#/, '');
+    const numOnly = cleanQuery.replace(/[^0-9]/g, '');
+
+    const request = await prisma.request.findFirst({
+      where: {
+        OR: [
+          { requestNumber: { equals: strippedReqNum, mode: 'insensitive' } },
+          { requestNumber: { equals: `REQ-${strippedReqNum}`, mode: 'insensitive' } },
+          { publicTrackingToken: cleanQuery },
+          ...(numOnly.length >= 4 ? [
+            { customer: { phone: { contains: numOnly } } },
+            { customer: { altPhone: { contains: numOnly } } }
+          ] : [])
+        ]
+      },
+      include: {
+        customer: true,
+        ministry: { select: { name: true } },
+        city: { select: { name: true } },
+        attachments: {
+          where: { isPublic: true, isIdentity: false }
+        },
+        statusHistory: {
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            newStatus: true,
+            createdAt: true,
+            note: true,
+            reason: true,
+            documentName: true,
+            documentPath: true,
+            isPublicDoc: true
+          }
+        },
+        finalResponse: {
+          select: {
+            id: true,
+            decision: true,
+            summary: true,
+            documentNumber: true,
+            issuedAt: true,
+            attachmentName: true,
+            deliveredToCustomer: true,
+            deliveryDate: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (!request || !request.customer) {
+      throw new AppError('لم يتم العثور على المعاملة', 404, 'REQUEST_NOT_FOUND');
+    }
+
+    const emailIdentifier = `${request.requestNumber}_${request.customer.phone}`;
+    const verification = await prisma.otpVerification.findUnique({
+      where: {
+        email_purpose: {
+          email: emailIdentifier,
+          purpose: 'PUBLIC_TRACKING'
+        }
+      }
+    });
+
+    if (!verification) {
+      throw new AppError('لم يتم العثور على رمز تحقق نشط، يرجى طلب رمز جديد', 400, 'NO_OTP_FOUND');
+    }
+
+    if (verification.isUsed) {
+      throw new AppError('تم استخدام هذا الرمز مسبقاً، يرجى طلب رمز جديد', 400, 'OTP_ALREADY_USED');
+    }
+
+    if (new Date() > verification.expiresAt) {
+      throw new AppError('انتهت صلاحية رمز التحقق، يرجى طلب رمز جديد', 400, 'OTP_EXPIRED');
+    }
+
+    const isMatch = await comparePassword(cleanOtp, verification.otpHash);
+    if (!isMatch) {
+      await prisma.otpVerification.update({
+        where: { id: verification.id },
+        data: { attempts: { increment: 1 } }
+      });
+      throw new AppError('رمز التحقق غير صحيح، يرجى التأكد وإعادة المحاولة', 400, 'INVALID_OTP');
+    }
+
+    // Mark OTP as used
+    await prisma.otpVerification.update({
+      where: { id: verification.id },
+      data: { isUsed: true }
+    });
+
+    // Prepare full tracking response
+    const timeline = request.statusHistory.map((h) => {
+      const d = new Date(h.createdAt);
+      return {
+        id: h.id,
+        status: h.newStatus,
+        date: d.toISOString().split('T')[0],
+        time: d.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }),
+        employeeName: 'فريق خدمة المعاملات',
+        note: h.note || `تم تحديث حالة المعاملة إلى: ${h.newStatus}`,
+        reason: h.reason || undefined,
+        documentName: h.isPublicDoc ? h.documentName : undefined,
+        isPublicDoc: h.isPublicDoc,
+        completed: true
+      };
+    });
+
+    const stageDocuments = request.attachments.map((a) => ({
+      id: a.id,
+      name: a.name,
+      type: a.fileType,
+      size: a.fileSize,
+      documentType: a.documentType,
+      uploadedAt: a.uploadedAt.toISOString().split('T')[0],
+      downloadUrl: `/api/public/attachments/${a.id}/download`
+    }));
+
+    const fullData = {
+      isMultiple: false,
+      isVerified: true,
+      requestNumber: request.requestNumber,
+      title: request.title,
+      details: request.details,
+      requestType: request.requestType,
+      customerName: request.customer.name,
+      ministryName: request.ministry.name,
+      cityName: request.city?.name || 'المدينة المعتمدة',
+      status: request.status,
+      receiveDate: request.receiveDate.toISOString().split('T')[0],
+      expectedCompletionDate: request.expectedCompletionDate.toISOString().split('T')[0],
+      completedDate: request.completedDate ? request.completedDate.toISOString().split('T')[0] : undefined,
+      deadlineStatus: request.deadlineStatus,
+      daysRemainingOrOverdue: request.daysRemainingOrOverdue,
+      timeline,
+      stageDocuments,
+      publicDocuments: stageDocuments,
+      finalResponse: request.finalResponse
+        ? {
+            id: request.finalResponse.id,
+            decision: request.finalResponse.decision,
+            summary: request.finalResponse.summary,
+            documentNumber: request.finalResponse.documentNumber || undefined,
+            issuedAt: request.finalResponse.issuedAt.toISOString().replace('T', ' ').substring(0, 16),
+            attachmentName: request.finalResponse.attachmentName || undefined,
+            deliveredToCustomer: request.finalResponse.deliveredToCustomer,
+            deliveryDate: request.finalResponse.deliveryDate ? request.finalResponse.deliveryDate.toISOString().split('T')[0] : undefined
+          }
+        : undefined
+    };
+
+    return sendSuccess(res, fullData, 'تم التحقق بنجاح من هوية صاحب المعاملة');
   } catch (error) {
     next(error);
   }
