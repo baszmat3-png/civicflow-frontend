@@ -107,6 +107,10 @@ export const registryService = {
     return apiClient.delete(`/registry/outgoing/${id}`);
   },
 
+  downloadOutgoingLetter: async (id: string, fileName = 'outgoing_document.pdf'): Promise<void> => {
+    await apiClient.download(`/registry/outgoing/${id}/download`, fileName);
+  },
+
   getOutgoingDownloadUrl: (id: string): string => {
     const isBrowser = typeof window !== 'undefined';
     const isLocalhost = isBrowser && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
@@ -114,7 +118,8 @@ export const registryService = {
       (import.meta as any).env?.VITE_API_BASE_URL ||
       (import.meta as any).env?.VITE_API_URL ||
       (isLocalhost ? 'http://localhost:5000/api' : 'https://civicflow-backend-1u3o.onrender.com/api');
-    return `${baseUrl}/registry/outgoing/${id}/download`;
+    const token = isBrowser ? (localStorage.getItem('civicflow_access_token') || '') : '';
+    return `${baseUrl}/registry/outgoing/${id}/download${token ? `?token=${encodeURIComponent(token)}` : ''}`;
   },
 
   // Incoming
@@ -147,6 +152,10 @@ export const registryService = {
     return apiClient.delete(`/registry/incoming/${id}`);
   },
 
+  downloadIncomingLetter: async (id: string, fileName = 'incoming_document.pdf'): Promise<void> => {
+    await apiClient.download(`/registry/incoming/${id}/download`, fileName);
+  },
+
   getIncomingDownloadUrl: (id: string): string => {
     const isBrowser = typeof window !== 'undefined';
     const isLocalhost = isBrowser && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
@@ -154,6 +163,7 @@ export const registryService = {
       (import.meta as any).env?.VITE_API_BASE_URL ||
       (import.meta as any).env?.VITE_API_URL ||
       (isLocalhost ? 'http://localhost:5000/api' : 'https://civicflow-backend-1u3o.onrender.com/api');
-    return `${baseUrl}/registry/incoming/${id}/download`;
+    const token = isBrowser ? (localStorage.getItem('civicflow_access_token') || '') : '';
+    return `${baseUrl}/registry/incoming/${id}/download${token ? `?token=${encodeURIComponent(token)}` : ''}`;
   }
 };

@@ -36,9 +36,20 @@ export const OutgoingLettersPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
-
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const handleDownload = async (id: string, fileName?: string) => {
+    try {
+      setDownloadingId(id);
+      await registryService.downloadOutgoingLetter(id, fileName || 'outgoing_document.pdf');
+    } catch (err: any) {
+      alert(err.message || 'فشل تحميل الملف');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   const fetchLetters = async () => {
     try {
@@ -211,15 +222,15 @@ export const OutgoingLettersPage: React.FC = () => {
                       </td>
                       <td className="p-4 text-center">
                         {row.hasAttachment ? (
-                          <a
-                            href={registryService.getOutgoingDownloadUrl(row.id)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-blue-600 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 transition"
+                          <button
+                            type="button"
+                            onClick={() => handleDownload(row.id, row.fileName)}
+                            disabled={downloadingId === row.id}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-blue-600 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 transition disabled:opacity-50 cursor-pointer"
                           >
-                            <Download className="w-3.5 h-3.5" />
-                            تحميل
-                          </a>
+                            <Download className={`w-3.5 h-3.5 ${downloadingId === row.id ? 'animate-bounce' : ''}`} />
+                            {downloadingId === row.id ? 'جارٍ التحميل...' : 'تحميل'}
+                          </button>
                         ) : (
                           <span className="text-slate-400 text-[10px]">بدون مرفق</span>
                         )}
