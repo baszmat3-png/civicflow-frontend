@@ -65,50 +65,61 @@ export const PublicTransparencyPage: React.FC = () => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {/* Total Requests */}
-        <div className="p-5 rounded-3xl bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 shadow-sm text-center space-y-2">
-          <div className="w-10 h-10 bg-blue-50 text-blue-600 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center mx-auto">
-            <Users className="w-5 h-5" />
+        <div className="p-4 rounded-3xl bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 shadow-sm text-center space-y-1.5">
+          <div className="w-9 h-9 bg-blue-50 text-blue-600 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center mx-auto">
+            <Users className="w-4 h-4" />
           </div>
-          <div className="text-2xl sm:text-3xl font-black font-mono text-slate-900 dark:text-white">
+          <div className="text-xl sm:text-2xl font-black font-mono text-slate-900 dark:text-white">
             {stats?.totalRequests || 0}
           </div>
-          <div className="text-xs font-bold text-slate-500">إجمالي المعاملات المقيدة</div>
+          <div className="text-[11px] font-bold text-slate-500">إجمالي المعاملات</div>
         </div>
 
-        {/* Completed */}
-        <div className="p-5 rounded-3xl bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 shadow-sm text-center space-y-2">
-          <div className="w-10 h-10 bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center mx-auto">
-            <CheckCircle2 className="w-5 h-5" />
+        {/* Completed This Month */}
+        <div className="p-4 rounded-3xl bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 shadow-sm text-center space-y-1.5">
+          <div className="w-9 h-9 bg-teal-50 text-teal-600 dark:bg-teal-900/30 rounded-2xl flex items-center justify-center mx-auto">
+            <Sparkles className="w-4 h-4" />
           </div>
-          <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-600">
+          <div className="text-xl sm:text-2xl font-black font-mono text-teal-600">
+            {stats?.completedThisMonth || 0}
+          </div>
+          <div className="text-[11px] font-bold text-slate-500">مُنجز هذا الشهر</div>
+        </div>
+
+        {/* Completed Total */}
+        <div className="p-4 rounded-3xl bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 shadow-sm text-center space-y-1.5">
+          <div className="w-9 h-9 bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center mx-auto">
+            <CheckCircle2 className="w-4 h-4" />
+          </div>
+          <div className="text-xl sm:text-2xl font-black font-mono text-emerald-600">
             {stats?.completedTotal || 0}
           </div>
-          <div className="text-xs font-bold text-slate-500">معاملة تم إنجازها وتسليمها</div>
+          <div className="text-[11px] font-bold text-slate-500">إجمالي المنجز</div>
         </div>
 
         {/* Completion Rate */}
-        <div className="p-5 rounded-3xl bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 shadow-sm text-center space-y-2">
-          <div className="w-10 h-10 bg-purple-50 text-purple-600 dark:bg-purple-900/30 rounded-2xl flex items-center justify-center mx-auto">
-            <TrendingUp className="w-5 h-5" />
+        <div className="p-4 rounded-3xl bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 shadow-sm text-center space-y-1.5">
+          <div className="w-9 h-9 bg-purple-50 text-purple-600 dark:bg-purple-900/30 rounded-2xl flex items-center justify-center mx-auto">
+            <TrendingUp className="w-4 h-4" />
           </div>
-          <div className="text-2xl sm:text-3xl font-black font-mono text-purple-600">
+          <div className="text-xl sm:text-2xl font-black font-mono text-purple-600">
             %{stats?.completionRate || 100}
           </div>
-          <div className="text-xs font-bold text-slate-500">نسبة الإنجاز الإجمالية</div>
+          <div className="text-[11px] font-bold text-slate-500">نسبة الإنجاز</div>
         </div>
 
         {/* Citizen Satisfaction */}
-        <div className="p-5 rounded-3xl bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 shadow-sm text-center space-y-2">
-          <div className="w-10 h-10 bg-amber-50 text-amber-500 dark:bg-amber-900/30 rounded-2xl flex items-center justify-center mx-auto">
-            <Star className="w-5 h-5 fill-amber-400" />
+        <div className="p-4 rounded-3xl bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 shadow-sm text-center space-y-1.5 col-span-2 sm:col-span-1">
+          <div className="w-9 h-9 bg-amber-50 text-amber-500 dark:bg-amber-900/30 rounded-2xl flex items-center justify-center mx-auto">
+            <Star className="w-4 h-4 fill-amber-400" />
           </div>
-          <div className="text-2xl sm:text-3xl font-black font-mono text-amber-500 flex items-center justify-center gap-1">
+          <div className="text-xl sm:text-2xl font-black font-mono text-amber-500 flex items-center justify-center gap-1">
             <span>{stats?.citizenSatisfactionScore || 5.0}</span>
             <span className="text-xs text-slate-400 font-normal">/ 5</span>
           </div>
-          <div className="text-xs font-bold text-slate-500">مؤشر رضا المراجعين</div>
+          <div className="text-[11px] font-bold text-slate-500">رضا المراجعين</div>
         </div>
       </div>
 

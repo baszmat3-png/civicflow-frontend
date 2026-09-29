@@ -110,7 +110,10 @@ export const getOutgoingLetters = async (req: Request, res: Response, next: Next
         { subject: { contains: q, mode: 'insensitive' } },
         { citizenName: { contains: q, mode: 'insensitive' } },
         { recipientName: { contains: q, mode: 'insensitive' } },
-        { summary: { contains: q, mode: 'insensitive' } }
+        { departmentNumber: { contains: q, mode: 'insensitive' } },
+        { archiveFileNumber: { contains: q, mode: 'insensitive' } },
+        { summary: { contains: q, mode: 'insensitive' } },
+        { notes: { contains: q, mode: 'insensitive' } }
       ];
     }
 
@@ -146,6 +149,8 @@ export const createOutgoingLetter = async (req: Request, res: Response, next: Ne
       ministryId,
       citizenName,
       citizenPhone,
+      departmentNumber,
+      archiveFileNumber,
       summary,
       notes,
       status
@@ -177,6 +182,8 @@ export const createOutgoingLetter = async (req: Request, res: Response, next: Ne
         ministryId: ministryId || null,
         citizenName: citizenName ? citizenName.trim() : null,
         citizenPhone: citizenPhone ? citizenPhone.trim() : null,
+        departmentNumber: departmentNumber ? departmentNumber.trim() : null,
+        archiveFileNumber: archiveFileNumber ? archiveFileNumber.trim() : null,
         summary: summary ? summary.trim() : null,
         notes: notes ? notes.trim() : null,
         status: status || 'SENT',
@@ -261,7 +268,10 @@ export const getIncomingLetters = async (req: Request, res: Response, next: Next
         { subject: { contains: q, mode: 'insensitive' } },
         { citizenName: { contains: q, mode: 'insensitive' } },
         { senderName: { contains: q, mode: 'insensitive' } },
-        { summary: { contains: q, mode: 'insensitive' } }
+        { departmentNumber: { contains: q, mode: 'insensitive' } },
+        { archiveFileNumber: { contains: q, mode: 'insensitive' } },
+        { summary: { contains: q, mode: 'insensitive' } },
+        { notes: { contains: q, mode: 'insensitive' } }
       ];
     }
 
@@ -290,6 +300,8 @@ export const createIncomingLetter = async (req: Request, res: Response, next: Ne
     const {
       incomingNumber,
       externalLetterNumber,
+      departmentNumber,
+      archiveFileNumber,
       receiveDate,
       subject,
       senderEntityId,
@@ -298,6 +310,7 @@ export const createIncomingLetter = async (req: Request, res: Response, next: Ne
       citizenName,
       citizenPhone,
       summary,
+      notes,
       actionRequired,
       priority,
       status
@@ -323,6 +336,8 @@ export const createIncomingLetter = async (req: Request, res: Response, next: Ne
       data: {
         incomingNumber: incomingNumber.trim(),
         externalLetterNumber: externalLetterNumber ? externalLetterNumber.trim() : null,
+        departmentNumber: departmentNumber ? departmentNumber.trim() : null,
+        archiveFileNumber: archiveFileNumber ? archiveFileNumber.trim() : null,
         receiveDate: receiveDate ? new Date(receiveDate) : new Date(),
         subject: subject.trim(),
         senderEntityId: senderEntityId || null,
@@ -331,6 +346,7 @@ export const createIncomingLetter = async (req: Request, res: Response, next: Ne
         citizenName: citizenName ? citizenName.trim() : null,
         citizenPhone: citizenPhone ? citizenPhone.trim() : null,
         summary: summary ? summary.trim() : null,
+        notes: notes ? notes.trim() : null,
         actionRequired: actionRequired ? actionRequired.trim() : null,
         priority: (priority as PriorityLevel) || PriorityLevel.NORMAL,
         status: status || 'RECEIVED',

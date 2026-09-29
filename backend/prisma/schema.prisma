@@ -519,6 +519,8 @@ model OutgoingLetter {
   ministry           Ministry?       @relation(fields: [ministryId], references: [id], onDelete: SetNull)
   citizenName        String?         // صاحب الشأن
   citizenPhone       String?
+  departmentNumber   String?         // رقم صادر القسم
+  archiveFileNumber  String?         // رقم ملف الحفظ
   summary            String?
   notes              String?
   fileName           String?
@@ -541,6 +543,8 @@ model IncomingLetter {
   id                   String          @id @default(uuid())
   incomingNumber       String          @unique // رقم الوارد الداخلي في المنظومة
   externalLetterNumber String?         // رقم كتاب الجهة الوارد
+  departmentNumber     String?         // رقم وارد القسم
+  archiveFileNumber    String?         // رقم ملف الحفظ
   receiveDate          DateTime        @default(now()) // تاريخ الورود
   subject              String          // عنوان / موضوع الكتاب
   senderEntityId       String?
@@ -551,6 +555,7 @@ model IncomingLetter {
   citizenName          String?         // صاحب الشأن
   citizenPhone         String?
   summary              String?
+  notes                String?
   actionRequired       String?         // الإجراء المطلوب
   priority             PriorityLevel   @default(NORMAL)
   status               String          @default("RECEIVED") // RECEIVED, IN_PROGRESS, REFERRED, COMPLETED, ARCHIVED

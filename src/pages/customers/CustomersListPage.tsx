@@ -14,6 +14,7 @@ import {
   Search,
   Eye,
   Edit,
+  FilePlus,
   Phone,
   MapPin,
   Building,
@@ -147,6 +148,13 @@ export const CustomersListPage: React.FC = () => {
                       <td className="py-3.5 px-4 text-slate-400 font-mono">{cust.createdAt}</td>
                     <td className="py-3.5 px-4 text-center">
                       <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => navigate(`/requests/create?customerId=${cust.id}`)}
+                          className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition"
+                          title="إنشاء معاملة جديدة لهذا المراجع"
+                        >
+                          <FilePlus className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => navigate(`/customers/${cust.id}`)}
                           className="p-1.5 rounded-lg text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition"

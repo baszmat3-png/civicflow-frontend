@@ -24,6 +24,8 @@ export interface OutgoingLetterItem {
   ministry?: { id: string; name: string };
   citizenName?: string;
   citizenPhone?: string;
+  departmentNumber?: string;
+  archiveFileNumber?: string;
   summary?: string;
   notes?: string;
   fileName?: string;
@@ -37,6 +39,8 @@ export interface IncomingLetterItem {
   id: string;
   incomingNumber: string;
   externalLetterNumber?: string;
+  departmentNumber?: string;
+  archiveFileNumber?: string;
   receiveDate: string;
   subject: string;
   senderEntityId?: string;
@@ -47,6 +51,7 @@ export interface IncomingLetterItem {
   citizenName?: string;
   citizenPhone?: string;
   summary?: string;
+  notes?: string;
   actionRequired?: string;
   priority: string;
   status: string;

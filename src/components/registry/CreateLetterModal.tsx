@@ -38,6 +38,8 @@ export const CreateLetterModal: React.FC<CreateLetterModalProps> = ({
   // Form fields
   const [letterNumber, setLetterNumber] = useState('');
   const [externalNumber, setExternalNumber] = useState('');
+  const [departmentNumber, setDepartmentNumber] = useState('');
+  const [archiveFileNumber, setArchiveFileNumber] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [subject, setSubject] = useState('');
   const [entityId, setEntityId] = useState('');
@@ -46,9 +48,30 @@ export const CreateLetterModal: React.FC<CreateLetterModalProps> = ({
   const [citizenName, setCitizenName] = useState('');
   const [citizenPhone, setCitizenPhone] = useState('');
   const [summary, setSummary] = useState('');
+  const [notes, setNotes] = useState('');
   const [actionRequired, setActionRequired] = useState('');
   const [priority, setPriority] = useState('NORMAL');
   const [file, setFile] = useState<File | null>(null);
+
+  const handleClearFields = () => {
+    setLetterNumber('');
+    setExternalNumber('');
+    setDepartmentNumber('');
+    setArchiveFileNumber('');
+    setDate(new Date().toISOString().split('T')[0]);
+    setSubject('');
+    setEntityId('');
+    setCustomEntityName('');
+    setMinistryId('');
+    setCitizenName('');
+    setCitizenPhone('');
+    setSummary('');
+    setNotes('');
+    setActionRequired('');
+    setPriority('NORMAL');
+    setFile(null);
+    setErrorMsg('');
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -83,12 +106,15 @@ export const CreateLetterModal: React.FC<CreateLetterModalProps> = ({
       const formData = new FormData();
       formData.append('subject', subject.trim());
       if (date) formData.append(isOutgoing ? 'issueDate' : 'receiveDate', date);
+      if (departmentNumber) formData.append('departmentNumber', departmentNumber.trim());
+      if (archiveFileNumber) formData.append('archiveFileNumber', archiveFileNumber.trim());
       if (entityId) formData.append(isOutgoing ? 'recipientEntityId' : 'senderEntityId', entityId);
       if (customEntityName) formData.append(isOutgoing ? 'recipientName' : 'senderName', customEntityName.trim());
       if (ministryId) formData.append('ministryId', ministryId);
       if (citizenName) formData.append('citizenName', citizenName.trim());
       if (citizenPhone) formData.append('citizenPhone', citizenPhone.trim());
       if (summary) formData.append('summary', summary.trim());
+      if (notes) formData.append('notes', notes.trim());
       if (file) formData.append('attachment', file);
 
       if (isOutgoing) {
@@ -202,6 +228,34 @@ export const CreateLetterModal: React.FC<CreateLetterModalProps> = ({
             </div>
           )}
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-gray-300 mb-1">
+                {isOutgoing ? 'رقم صادر القسم' : 'رقم وارد القسم'} (اختياري)
+              </label>
+              <input
+                type="text"
+                value={departmentNumber}
+                onChange={(e) => setDepartmentNumber(e.target.value)}
+                placeholder="رقم القيد لدى القسم المختص"
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-900 focus:outline-none font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-gray-300 mb-1">
+                رقم ملف الحفظ (الأرشيف)
+              </label>
+              <input
+                type="text"
+                value={archiveFileNumber}
+                onChange={(e) => setArchiveFileNumber(e.target.value)}
+                placeholder="مثال: ملف رقم 12 / رف 4"
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-900 focus:outline-none font-mono"
+              />
+            </div>
+          </div>
+
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-gray-300 mb-1">
               عنوان وموضوع الكتاب <span className="text-rose-500">*</span>
@@ -314,23 +368,38 @@ export const CreateLetterModal: React.FC<CreateLetterModalProps> = ({
             </div>
           )}
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-gray-300 mb-1">
-              ملخص أو نبذة عن محتوى الكتاب
-            </label>
-            <textarea
-              rows={2}
-              value={summary}
-              onChange={(e) => setSummary(e.target.value)}
-              placeholder="نص مختصر يلخص مضمون الكتاب وأهم قراراته..."
-              className="w-full text-xs p-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-900 focus:outline-none"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-gray-300 mb-1">
+                ملخص محتوى الكتاب
+              </label>
+              <textarea
+                rows={2}
+                value={summary}
+                onChange={(e) => setSummary(e.target.value)}
+                placeholder="نص مختصر يلخص مضمون الكتاب..."
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-900 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-gray-300 mb-1">
+                ملاحظات
+              </label>
+              <textarea
+                rows={2}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="أي ملاحظات إضافية أو تنبيهات..."
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-900 focus:outline-none"
+              />
+            </div>
           </div>
 
           {/* Attachment Upload */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-gray-300 mb-1">
-              إرفاق نسخة ضوئية من الكتاب (PDF / صورة)
+              إضافة / عرض مرفقات الكتاب (PDF / صور)
             </label>
             <div className="p-4 border-2 border-dashed border-slate-200 dark:border-gray-700 rounded-2xl text-center bg-slate-50/50 dark:bg-gray-850 hover:bg-slate-50 cursor-pointer transition">
               <input
@@ -350,21 +419,38 @@ export const CreateLetterModal: React.FC<CreateLetterModalProps> = ({
                   {file ? file.name : 'اضغط لاختيار أو سحب ملف الكتاب الممسوح ضوئياً'}
                 </div>
                 <div className="text-[10px] text-slate-400 font-mono">
-                  {file ? `${(file.size / (1024 * 1024)).toFixed(2)} MB` : 'PDF أو صور حتى 25 ميجابايت'}
+                  {file ? `${(file.size / (1024 * 1024)).toFixed(2)} MB (اضغط لتغيير الملف)` : 'PDF أو صور حتى 25 ميجابايت'}
                 </div>
               </label>
+              {file && (
+                <button
+                  type="button"
+                  onClick={() => setFile(null)}
+                  className="mt-2 text-rose-600 hover:text-rose-700 text-xs font-bold underline"
+                >
+                  إزالة الملف
+                </button>
+              )}
             </div>
           </div>
 
-          <div className="flex gap-2 pt-3 border-t border-slate-100 dark:border-gray-700">
+          <div className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-slate-100 dark:border-gray-700">
             <Button
               type="submit"
               variant="primary"
-              className="w-full font-bold"
+              className="flex-1 font-bold"
               isLoading={submitting}
               icon={<CheckCircle2 className="w-4 h-4" />}
             >
-              حفظ وتوثيق القيد في السجل
+              حفظ القيد
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClearFields}
+              className="text-amber-700 border-amber-300 hover:bg-amber-50"
+            >
+              تفريغ الحقول
             </Button>
             <Button type="button" variant="outline" onClick={onClose}>
               إلغاء

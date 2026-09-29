@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
@@ -25,12 +25,20 @@ import {
   Sparkles,
   ShieldAlert,
   MapPin,
-  Layers
+  Layers,
+  Search,
+  Check,
+  ChevronDown,
+  Phone,
+  Briefcase,
+  Hash
 } from 'lucide-react';
 import { IRAQI_GOVERNORATES } from '../../constants/iraqGovernorates';
 
 export const CreateRequestPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const customerIdFromQuery = searchParams.get('customerId');
   const { customers, ministries, employees, handleCreateRequest, handleCreateCustomer } = useData();
   const { success, warning, error } = useToast();
 
@@ -91,14 +99,47 @@ export const CreateRequestPage: React.FC = () => {
     fetchOptions();
   }, []);
 
-  // Sync defaults when context data loads
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Sync defaults or URL query params when context data loads
   useEffect(() => {
-    if (customers.length > 0) {
+    if (customerIdFromQuery && customers.some((c) => c.id === customerIdFromQuery)) {
+      setCustomerMode('existing');
+      setSelectedCustomerId(customerIdFromQuery);
+    } else if (customers.length > 0) {
       if (!selectedCustomerId || !customers.some((c) => c.id === selectedCustomerId)) {
         setSelectedCustomerId(customers[0].id);
       }
     }
-  }, [customers, selectedCustomerId]);
+  }, [customers, customerIdFromQuery]);
+
+  // Click outside to close customer dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsCustomerDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filteredExistingCustomers = useMemo(() => {
+    if (!customerSearchQuery.trim()) return customers;
+    const q = customerSearchQuery.trim().toLowerCase();
+    return customers.filter((c) => {
+      return (
+        (c.name && c.name.toLowerCase().includes(q)) ||
+        (c.phone && c.phone.includes(q)) ||
+        (c.altPhone && c.altPhone.includes(q)) ||
+        (c.nationalId && c.nationalId.includes(q)) ||
+        (c.customerNumber && c.customerNumber.toLowerCase().includes(q)) ||
+        (c.address && c.address.toLowerCase().includes(q))
+      );
+    });
+  }, [customers, customerSearchQuery]);
 
   useEffect(() => {
     if (ministries.length > 0) {
@@ -416,36 +457,181 @@ export const CreateRequestPage: React.FC = () => {
 
           <CardContent className="space-y-4">
             {customerMode === 'existing' ? (
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-                  المراجع المسجل <span className="text-rose-500">*</span>
-                </label>
-                <Select
-                  value={selectedCustomerId}
-                  onChange={(e) => setSelectedCustomerId(e.target.value)}
-                >
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} — {c.phone} {c.nationalId ? `(${c.nationalId})` : ''}
-                    </option>
-                  ))}
-                </Select>
-
-                {selectedCustomer && (
-                  <div className="mt-3 p-3.5 rounded-xl bg-blue-50/60 border border-blue-200 text-xs text-blue-950 flex flex-wrap items-center gap-4">
+              <div className="space-y-4">
+                {/* Searchable Customer Picker */}
+                <div ref={dropdownRef} className="relative">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-gray-300 mb-1.5 flex items-center justify-between">
                     <span>
-                      الهاتف: <strong>{selectedCustomer.phone}</strong>
+                      البحث في المراجعين المسجلين مسبقاً <span className="text-rose-500">*</span>
                     </span>
-                    {selectedCustomer.nationalId && (
-                      <span>
-                        الهوية: <strong>{selectedCustomer.nationalId}</strong>
-                      </span>
+                    <span className="text-[11px] text-blue-600 font-normal">
+                      إجمالي المسجلين: {customers.length} مراجع
+                    </span>
+                  </label>
+
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5" />
+                    <input
+                      type="text"
+                      value={customerSearchQuery}
+                      onChange={(e) => {
+                        setCustomerSearchQuery(e.target.value);
+                        setIsCustomerDropdownOpen(true);
+                      }}
+                      onFocus={() => setIsCustomerDropdownOpen(true)}
+                      placeholder={
+                        selectedCustomer
+                          ? `المراجع المختار حالياً: ${selectedCustomer.name} (اضغط للبحث أو التغيير)`
+                          : 'ابحث بالاسم، رقم الهاتف، أو رقم الهوية الوطنية...'
+                      }
+                      className="w-full text-xs pr-10 pl-10 py-3 rounded-2xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-sans shadow-xs transition"
+                    />
+
+                    {customerSearchQuery ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomerSearchQuery('');
+                          setIsCustomerDropdownOpen(false);
+                        }}
+                        className="absolute left-3 top-3 p-1 text-slate-400 hover:text-slate-600 rounded-full"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setIsCustomerDropdownOpen(!isCustomerDropdownOpen)}
+                        className="absolute left-3 top-3 p-1 text-slate-400 hover:text-slate-600 rounded-full"
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
                     )}
-                    {selectedCustomer.address && (
-                      <span>
-                        العنوان: <strong>{selectedCustomer.address}</strong>
+                  </div>
+
+                  {/* Dropdown Menu */}
+                  {isCustomerDropdownOpen && (
+                    <div className="absolute z-50 w-full mt-2 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-2xl shadow-xl max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-gray-700 animate-in fade-in slide-in-from-top-2 duration-150">
+                      {filteredExistingCustomers.length === 0 ? (
+                        <div className="p-4 text-center text-xs text-slate-500">
+                          لا توجد نتائج مطابقة لبحثك "{customerSearchQuery}".
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCustomerMode('new');
+                              setCustName(customerSearchQuery);
+                              setIsCustomerDropdownOpen(false);
+                            }}
+                            className="block mx-auto mt-2 text-blue-600 font-bold hover:underline"
+                          >
+                            + تسجيل كمراجع جديد بالاسم "{customerSearchQuery}"
+                          </button>
+                        </div>
+                      ) : (
+                        filteredExistingCustomers.map((c) => {
+                          const isSelected = c.id === selectedCustomerId;
+                          return (
+                            <div
+                              key={c.id}
+                              onClick={() => {
+                                setSelectedCustomerId(c.id);
+                                setIsCustomerDropdownOpen(false);
+                                setCustomerSearchQuery('');
+                              }}
+                              className={`p-3 text-xs cursor-pointer flex items-center justify-between transition ${
+                                isSelected
+                                  ? 'bg-blue-50/80 dark:bg-blue-900/30 text-blue-950 dark:text-blue-200 font-bold'
+                                  : 'hover:bg-slate-50 dark:hover:bg-gray-750 text-slate-800 dark:text-gray-200'
+                              }`}
+                            >
+                              <div className="space-y-0.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-sm">{c.name}</span>
+                                  {c.nationalId && (
+                                    <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-gray-700 text-[10px] text-slate-600 dark:text-gray-300 font-mono">
+                                      هوية: {c.nationalId}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[11px] text-slate-500 dark:text-gray-400 flex items-center gap-3 font-mono">
+                                  <span>📞 {c.phone}</span>
+                                  {c.altPhone && <span>📱 {c.altPhone}</span>}
+                                  {c.address && <span>📍 {c.address}</span>}
+                                </div>
+                              </div>
+                              {isSelected && <Check className="w-5 h-5 text-blue-600 shrink-0" />}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Full Auto-filled Profile Card of the selected customer */}
+                {selectedCustomer && (
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-50/70 to-indigo-50/40 border border-blue-200/80 dark:bg-gray-800/80 dark:border-gray-700 space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-blue-200/60 dark:border-gray-700">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm">
+                          {selectedCustomer.name.charAt(0)}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                            {selectedCustomer.name}
+                          </h4>
+                          <span className="text-[10px] text-blue-700 dark:text-blue-400 font-mono">
+                            معرّف المراجع: {selectedCustomer.customerNumber || selectedCustomer.id.substring(0, 8)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+                        ✓ تم استيراد البيانات تلقائياً
                       </span>
-                    )}
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                      <div className="bg-white/80 dark:bg-gray-800 p-2.5 rounded-xl border border-blue-100 dark:border-gray-700">
+                        <span className="text-slate-400 text-[10px] block">رقم هاتف واتساب</span>
+                        <strong className="text-slate-800 dark:text-white font-mono">{selectedCustomer.phone}</strong>
+                      </div>
+
+                      <div className="bg-white/80 dark:bg-gray-800 p-2.5 rounded-xl border border-blue-100 dark:border-gray-700">
+                        <span className="text-slate-400 text-[10px] block">رقم الهاتف اتصال</span>
+                        <strong className="text-slate-800 dark:text-white font-mono">
+                          {selectedCustomer.altPhone || 'غير مسجل'}
+                        </strong>
+                      </div>
+
+                      <div className="bg-white/80 dark:bg-gray-800 p-2.5 rounded-xl border border-blue-100 dark:border-gray-700">
+                        <span className="text-slate-400 text-[10px] block">رقم الهوية الوطنية</span>
+                        <strong className="text-slate-800 dark:text-white font-mono">
+                          {selectedCustomer.nationalId || 'غير مسجل'}
+                        </strong>
+                      </div>
+
+                      <div className="bg-white/80 dark:bg-gray-800 p-2.5 rounded-xl border border-blue-100 dark:border-gray-700">
+                        <span className="text-slate-400 text-[10px] block">سنة التولد / المواليد</span>
+                        <strong className="text-slate-800 dark:text-white font-mono">
+                          {selectedCustomer.birthYear || 'غير مسجل'}
+                        </strong>
+                      </div>
+
+                      <div className="bg-white/80 dark:bg-gray-800 p-2.5 rounded-xl border border-blue-100 dark:border-gray-700">
+                        <span className="text-slate-400 text-[10px] block">المهنة والوظيفة</span>
+                        <strong className="text-slate-800 dark:text-white">
+                          {selectedCustomer.occupation || 'غير مسجل'}
+                        </strong>
+                      </div>
+
+                      <div className="bg-white/80 dark:bg-gray-800 p-2.5 rounded-xl border border-blue-100 dark:border-gray-700">
+                        <span className="text-slate-400 text-[10px] block">المحافظة / العنوان</span>
+                        <strong className="text-slate-800 dark:text-white truncate block">
+                          {selectedCustomer.address || 'العراق'}
+                        </strong>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

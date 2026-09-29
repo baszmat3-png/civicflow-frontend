@@ -160,6 +160,8 @@ export const OutgoingLettersPage: React.FC = () => {
                   <tr>
                     <th className="p-4">رقم الكتاب (العدد)</th>
                     <th className="p-4">تاريخ الكتاب</th>
+                    <th className="p-4">رقم ملف الحفظ</th>
+                    <th className="p-4">صادر القسم</th>
                     <th className="p-4">عنوان الموضوع</th>
                     <th className="p-4">الجهة الصادر إليها</th>
                     <th className="p-4">صاحب الشأن</th>
@@ -175,6 +177,18 @@ export const OutgoingLettersPage: React.FC = () => {
                       </td>
                       <td className="p-4 font-mono text-slate-600 dark:text-gray-300">
                         {new Date(row.issueDate).toISOString().split('T')[0]}
+                      </td>
+                      <td className="p-4 font-mono text-slate-700 dark:text-gray-300">
+                        {row.archiveFileNumber ? (
+                          <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-gray-800 text-[11px] font-bold">
+                            {row.archiveFileNumber}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </td>
+                      <td className="p-4 font-mono text-slate-600 dark:text-gray-300 text-[11px]">
+                        {row.departmentNumber || '-'}
                       </td>
                       <td className="p-4 font-bold text-slate-900 dark:text-white max-w-xs truncate">
                         {row.subject}
