@@ -14,6 +14,7 @@ import { ChangeStatusModal } from '../../components/request/ChangeStatusModal';
 import { BulkChangeStatusModal } from '../../components/request/BulkChangeStatusModal';
 import { ExportColumnModal } from '../../components/common/ExportColumnModal';
 import { BulkImportModal } from '../../components/requests/BulkImportModal';
+import { BulkWhatsAppModal } from '../../components/common/BulkWhatsAppModal';
 import { RequestItem, RequestStatus, RequestPriority } from '../../types';
 import { reportService } from '../../services/reportService';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -37,7 +38,8 @@ import {
   Building2,
   Globe,
   CheckSquare,
-  Square
+  Square,
+  MessageSquare
 } from 'lucide-react';
 
 export const RequestsListPage: React.FC = () => {
@@ -91,6 +93,7 @@ export const RequestsListPage: React.FC = () => {
   // Bulk Selection State
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isBulkStatusModalOpen, setIsBulkStatusModalOpen] = useState(false);
+  const [isBulkWhatsAppOpen, setIsBulkWhatsAppOpen] = useState(false);
 
   // Modals state
   const [statusModalRequest, setStatusModalRequest] = useState<RequestItem | null>(null);
@@ -749,27 +752,48 @@ export const RequestsListPage: React.FC = () => {
 
       {/* Bulk Selection Action Bar */}
       {selectedIds.length > 0 && (
-        <div className="bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl flex flex-wrap items-center justify-between gap-3 animate-in slide-in-from-top-2 duration-200">
-          <div className="flex items-center gap-3">
+        <div className="bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in slide-in-from-top-2 duration-200">
+          <div className="flex flex-wrap items-center gap-3">
             <span className="w-7 h-7 rounded-full bg-blue-500 text-white font-bold flex items-center justify-center text-xs">
               {selectedIds.length}
             </span>
             <span className="text-xs font-bold">
               تم تحديد {selectedIds.length} معاملة من أصل {filteredRequests.length}
             </span>
+            {selectedIds.length < filteredRequests.length && (
+              <button
+                type="button"
+                onClick={() => setSelectedIds(filteredRequests.map((r) => r.id))}
+                className="text-[11px] text-blue-300 hover:text-white underline font-medium"
+              >
+                تحديد كافة الـ ({filteredRequests.length}) معاملة
+              </button>
+            )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setIsBulkWhatsAppOpen(true)}
+              icon={<MessageSquare className="w-4 h-4 text-emerald-300" />}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md shadow-emerald-600/20"
+            >
+              إرسال رسالة واتساب مخصصة للمحددين
+            </Button>
+
             {canChangeStatus && (
               <Button
-                variant="primary"
+                variant="outline"
                 size="sm"
                 onClick={() => setIsBulkStatusModalOpen(true)}
-                icon={<RefreshCw className="w-4 h-4" />}
+                icon={<RefreshCw className="w-4 h-4 text-blue-400" />}
+                className="text-white border-slate-700 hover:bg-slate-800"
               >
-                تغيير حالة الطلبات المحددة
+                تغيير الحالة
               </Button>
             )}
+
             <Button
               variant="outline"
               size="sm"
@@ -1008,6 +1032,30 @@ export const RequestsListPage: React.FC = () => {
         onClose={() => setIsBulkImportOpen(false)}
         onSuccess={() => window.location.reload()}
       />
+
+      {/* Bulk WhatsApp Messages Modal */}
+      {isBulkWhatsAppOpen && (
+        <BulkWhatsAppModal
+          isOpen={isBulkWhatsAppOpen}
+          onClose={() => setIsBulkWhatsAppOpen(false)}
+          recipients={requests
+            .filter((r) => selectedIds.includes(r.id))
+            .map((r) => ({
+              id: r.id,
+              requestId: r.id,
+              phoneNumber: r.customerPhone,
+              customerName: r.customerName,
+              requestNumber: r.requestNumber,
+              ministry: r.ministryName,
+              ministryName: r.ministryName,
+              title: r.title,
+              trackingLink: `${window.location.origin}/track/${r.requestNumber}`
+            }))}
+          onSuccess={() => {
+            setSelectedIds([]);
+          }}
+        />
+      )}
     </div>
   );
 };

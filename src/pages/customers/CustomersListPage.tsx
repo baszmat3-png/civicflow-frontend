@@ -10,6 +10,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { Customer } from '../../types';
 import { usePermissions } from '../../hooks/usePermissions';
 import { BulkImportCustomersModal } from '../../components/customers/BulkImportCustomersModal';
+import { BulkWhatsAppModal } from '../../components/common/BulkWhatsAppModal';
 import {
   Plus,
   Search,
@@ -21,7 +22,8 @@ import {
   Building,
   ChevronLeft,
   Calendar,
-  FileSpreadsheet
+  FileSpreadsheet,
+  MessageSquare
 } from 'lucide-react';
 
 export const CustomersListPage: React.FC = () => {
@@ -29,6 +31,10 @@ export const CustomersListPage: React.FC = () => {
   const { customers, requests } = useData();
   const { canCreateCustomer, canUpdateCustomer } = usePermissions();
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+  const [isBulkWhatsAppOpen, setIsBulkWhatsAppOpen] = useState(false);
+
+  // Selection
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -42,7 +48,7 @@ export const CustomersListPage: React.FC = () => {
         c.name.toLowerCase().includes(q) ||
         c.phone.includes(q) ||
         (c.nationalId && c.nationalId.includes(q)) ||
-        c.address.toLowerCase().includes(q)
+        (c.address && c.address.toLowerCase().includes(q))
     );
   }, [customers, search]);
 
@@ -51,6 +57,45 @@ export const CustomersListPage: React.FC = () => {
     const start = (currentPage - 1) * pageSize;
     return filteredCustomers.slice(start, start + pageSize);
   }, [filteredCustomers, currentPage, pageSize]);
+
+  // Bulk Selection Helpers
+  const isAllPageSelected =
+    paginatedCustomers.length > 0 && paginatedCustomers.every((c) => selectedIds.includes(c.id));
+
+  const toggleSelectAllPage = () => {
+    if (isAllPageSelected) {
+      const pageIds = new Set(paginatedCustomers.map((c) => c.id));
+      setSelectedIds((prev) => prev.filter((id) => !pageIds.has(id)));
+    } else {
+      const pageIds = paginatedCustomers.map((c) => c.id);
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...pageIds])));
+    }
+  };
+
+  const toggleSelectRow = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const selectedRecipients = useMemo(() => {
+    return customers
+      .filter((c) => selectedIds.includes(c.id))
+      .map((c) => {
+        const custReq = requests.find((r) => r.customerId === c.id);
+        return {
+          id: c.id,
+          phoneNumber: c.phone,
+          customerName: c.name,
+          requestNumber: custReq?.requestNumber || '',
+          ministry: custReq?.ministryName || '',
+          ministryName: custReq?.ministryName || '',
+          title: custReq?.title || 'معاملة رسمية',
+          trackingLink: custReq ? `${window.location.origin}/track/${custReq.requestNumber}` : `${window.location.origin}/track`
+        };
+      });
+  }, [customers, requests, selectedIds]);
 
   return (
     <div className="space-y-6">
@@ -105,6 +150,50 @@ export const CustomersListPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Bulk Selection Action Bar */}
+      {selectedIds.length > 0 && (
+        <div className="bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in slide-in-from-top-2 duration-200">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="w-7 h-7 rounded-full bg-blue-500 text-white font-bold flex items-center justify-center text-xs">
+              {selectedIds.length}
+            </span>
+            <span className="text-xs font-bold">
+              تم تحديد {selectedIds.length} مراجع من أصل {filteredCustomers.length}
+            </span>
+            {selectedIds.length < filteredCustomers.length && (
+              <button
+                type="button"
+                onClick={() => setSelectedIds(filteredCustomers.map((c) => c.id))}
+                className="text-[11px] text-blue-300 hover:text-white underline font-medium"
+              >
+                تحديد كافة الـ ({filteredCustomers.length}) مراجع
+              </button>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setIsBulkWhatsAppOpen(true)}
+              icon={<MessageSquare className="w-4 h-4 text-emerald-300" />}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md shadow-emerald-600/20"
+            >
+              إرسال رسالة واتساب مخصصة للمحددين
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedIds([])}
+              className="text-slate-300 border-slate-700 hover:bg-slate-800"
+            >
+              إلغاء التحديد
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Customers Table / Cards */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden">
         {paginatedCustomers.length === 0 ? (
@@ -119,6 +208,15 @@ export const CustomersListPage: React.FC = () => {
             <table className="w-full text-right text-xs">
               <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
                 <tr>
+                  <th className="py-3.5 px-3 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={isAllPageSelected}
+                      onChange={toggleSelectAllPage}
+                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      title="تحديد الكل في هذه الصفحة"
+                    />
+                  </th>
                   <th className="py-3.5 px-4 font-bold">اسم المراجع</th>
                   <th className="py-3.5 px-4 font-bold">رقم هاتف واتساب</th>
                   <th className="py-3.5 px-4 font-bold">رقم الهوية</th>
@@ -131,6 +229,7 @@ export const CustomersListPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {paginatedCustomers.map((cust) => {
+                  const isSelected = selectedIds.includes(cust.id);
                   const actualCustRequests = requests.filter((r) => r.customerId === cust.id);
                   const custReqCount = actualCustRequests.length || cust.requestsCount || 0;
                   const latestReqDate = actualCustRequests[0]?.receiveDate || cust.lastRequestDate || '---';
@@ -139,11 +238,21 @@ export const CustomersListPage: React.FC = () => {
                     <tr
                       key={cust.id}
                       onClick={(e) => {
-                        if ((e.target as HTMLElement).closest('button')) return;
+                        if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input[type="checkbox"]')) return;
                         navigate(`/customers/${cust.id}`);
                       }}
-                      className="hover:bg-blue-50/30 transition group cursor-pointer"
+                      className={`hover:bg-blue-50/30 transition group cursor-pointer ${
+                        isSelected ? 'bg-blue-50/60' : ''
+                      }`}
                     >
+                      <td className="py-3.5 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => toggleSelectRow(cust.id, e as any)}
+                          className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        />
+                      </td>
                       <td className="py-3.5 px-4 font-bold text-slate-900 group-hover:text-blue-600">
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-xs">
@@ -162,36 +271,36 @@ export const CustomersListPage: React.FC = () => {
                       </td>
                       <td className="py-3.5 px-4 text-slate-500 font-mono">{latestReqDate}</td>
                       <td className="py-3.5 px-4 text-slate-400 font-mono">{cust.createdAt}</td>
-                    <td className="py-3.5 px-4 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => navigate(`/requests/create?customerId=${cust.id}`)}
-                          className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition"
-                          title="إنشاء معاملة جديدة لهذا المراجع"
-                        >
-                          <FilePlus className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => navigate(`/customers/${cust.id}`)}
-                          className="p-1.5 rounded-lg text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition"
-                          title="عرض ملف المراجع"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        {canUpdateCustomer && (
+                      <td className="py-3.5 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1">
                           <button
-                            onClick={() => navigate(`/customers/${cust.id}/edit`)}
-                            className="p-1.5 rounded-lg text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition"
-                            title="تعديل البيانات"
+                            onClick={() => navigate(`/requests/create?customerId=${cust.id}`)}
+                            className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition"
+                            title="إنشاء معاملة جديدة لهذا المراجع"
                           >
-                            <Edit className="w-4 h-4" />
+                            <FilePlus className="w-4 h-4" />
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                          <button
+                            onClick={() => navigate(`/customers/${cust.id}`)}
+                            className="p-1.5 rounded-lg text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition"
+                            title="عرض ملف المراجع"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          {canUpdateCustomer && (
+                            <button
+                              onClick={() => navigate(`/customers/${cust.id}/edit`)}
+                              className="p-1.5 rounded-lg text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition"
+                              title="تعديل البيانات"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -212,6 +321,19 @@ export const CustomersListPage: React.FC = () => {
         onClose={() => setIsBulkImportOpen(false)}
         onSuccess={() => window.location.reload()}
       />
+
+      {/* Bulk WhatsApp Messages Modal */}
+      {isBulkWhatsAppOpen && (
+        <BulkWhatsAppModal
+          isOpen={isBulkWhatsAppOpen}
+          onClose={() => setIsBulkWhatsAppOpen(false)}
+          recipients={selectedRecipients}
+          onSuccess={() => {
+            setSelectedIds([]);
+          }}
+        />
+      )}
     </div>
   );
 };
+export default CustomersListPage;

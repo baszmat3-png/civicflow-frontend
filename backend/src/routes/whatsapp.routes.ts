@@ -5,7 +5,8 @@ import {
   updateTemplate,
   deleteTemplate,
   getLogs,
-  sendManualWhatsApp
+  sendManualWhatsApp,
+  sendBulkWhatsApp
 } from '../controllers/whatsapp.controller.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
 import { requirePermission } from '../middlewares/rbac.middleware.js';
@@ -20,3 +21,4 @@ whatsAppRouter.patch('/templates/:id', requirePermission('whatsapp.manage'), upd
 whatsAppRouter.delete('/templates/:id', requirePermission('whatsapp.manage'), deleteTemplate);
 whatsAppRouter.get('/logs', requirePermission('whatsapp.view'), getLogs);
 whatsAppRouter.post('/send', requirePermission('whatsapp.send'), sendManualWhatsApp);
+whatsAppRouter.post('/send-bulk', requirePermission('whatsapp.send'), sendBulkWhatsApp);

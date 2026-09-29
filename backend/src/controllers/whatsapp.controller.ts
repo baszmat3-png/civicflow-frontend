@@ -117,3 +117,55 @@ export const sendManualWhatsApp = async (req: Request, res: Response, next: Next
     next(error);
   }
 };
+
+export const sendBulkWhatsApp = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { recipients, message, templateKey } = req.body;
+
+    if (!Array.isArray(recipients) || recipients.length === 0) {
+      throw new AppError('يرجى تحديد مستلم واحد على الأقل', 400, 'NO_RECIPIENTS');
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+    const errors: string[] = [];
+
+    for (const item of recipients) {
+      const phone = item.phoneNumber || item.customerPhone || item.phone;
+      if (!phone) {
+        failCount++;
+        continue;
+      }
+
+      let formattedMessage = message || '';
+      if (item.customerName) formattedMessage = formattedMessage.replace(/{{customer_name}}/g, item.customerName);
+      if (item.requestNumber) formattedMessage = formattedMessage.replace(/{{request_number}}/g, item.requestNumber);
+      if (item.ministry) formattedMessage = formattedMessage.replace(/{{ministry}}/g, item.ministry);
+      if (item.ministryName) formattedMessage = formattedMessage.replace(/{{ministry}}/g, item.ministryName);
+      if (item.title) formattedMessage = formattedMessage.replace(/{{title}}/g, item.title);
+      if (phone) formattedMessage = formattedMessage.replace(/{{phone}}/g, phone);
+      if (item.trackingLink) formattedMessage = formattedMessage.replace(/{{tracking_link}}/g, item.trackingLink);
+
+      try {
+        await whatsAppProvider.sendMessage({
+          to: phone,
+          message: formattedMessage,
+          templateKey: templateKey || 'bulk_custom_message',
+          requestId: item.requestId || item.id
+        });
+        successCount++;
+      } catch (err: any) {
+        failCount++;
+        errors.push(`${phone}: ${err.message}`);
+      }
+    }
+
+    return sendSuccess(
+      res,
+      { successCount, failCount, total: recipients.length, errors },
+      `تم إرسال ${successCount} رسالة واتساب بنجاح من أصل ${recipients.length}`
+    );
+  } catch (error) {
+    next(error);
+  }
+};

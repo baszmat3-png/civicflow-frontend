@@ -50,6 +50,12 @@ const DEFAULT_WA_TEMPLATES = [
     title: 'تذكير بموعد المقابلة (قبل 30 دقيقة)',
     content: 'تذكير: الأخ/الأخت {{customer_name}}، نود تذكيرك بموعد مقابلتك اليوم {{appointment_date}} في تمام الساعة {{appointment_time}} لمقابلة ({{target_person}}). نتمنى لك يوماً سعيداً.',
     variables: ['customer_name', 'appointment_number', 'target_person', 'appointment_date', 'appointment_time']
+  },
+  {
+    key: 'bulk_custom_message',
+    title: 'رسالة جماعية مخصصة للمراجعين',
+    content: 'السلام عليكم الأخ/الأخت {{customer_name}} المحترم،\nنود إعلامكم بخصوص معاملتكم ({{request_number}}) لدى ({{ministry}}):\n{{custom_message}}\n\nلمتابعة تفاصيل الطلب: {{tracking_link}}\nمع تحيات مكتب المتابعة.',
+    variables: ['customer_name', 'request_number', 'ministry', 'title', 'custom_message', 'tracking_link', 'phone']
   }
 ];
 

@@ -29,5 +29,27 @@ export const whatsappService = {
       templateKey,
       requestId
     });
+  },
+
+  sendBulkWhatsApp: async (
+    recipients: Array<{
+      phoneNumber: string;
+      customerName?: string;
+      requestNumber?: string;
+      ministry?: string;
+      ministryName?: string;
+      title?: string;
+      trackingLink?: string;
+      requestId?: string;
+      id?: string;
+    }>,
+    message: string,
+    templateKey?: string
+  ): Promise<{ successCount: number; failCount: number; total: number; errors: string[] }> => {
+    return apiClient.post('/whatsapp/send-bulk', {
+      recipients,
+      message,
+      templateKey
+    });
   }
 };
