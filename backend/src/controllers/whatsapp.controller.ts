@@ -112,6 +112,10 @@ export const sendManualWhatsApp = async (req: Request, res: Response, next: Next
       requestId: data.requestId
     });
 
+    if (!result.success) {
+      throw new AppError(result.errorMessage || 'تعذر إرسال رسالة WhatsApp عبر المزود', 400, 'WHATSAPP_SEND_FAILED');
+    }
+
     return sendSuccess(res, result, 'تم إرسال رسالة الـ WhatsApp بنجاح');
   } catch (error) {
     next(error);

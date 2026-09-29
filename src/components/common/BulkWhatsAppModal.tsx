@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { useToast } from '../../context/ToastContext';
@@ -9,12 +9,17 @@ import {
   Send,
   Users,
   Sparkles,
-  Tag,
-  CheckCircle2,
-  AlertCircle,
   Clock,
   Eye,
-  Phone
+  Phone,
+  ExternalLink,
+  CheckCircle2,
+  XCircle,
+  Pause,
+  Play,
+  RotateCcw,
+  ShieldCheck,
+  Timer
 } from 'lucide-react';
 
 export interface BulkRecipientItem {
@@ -36,22 +41,100 @@ interface BulkWhatsAppModalProps {
   onSuccess?: () => void;
 }
 
+type RecipientStatus = 'idle' | 'sending' | 'sent' | 'failed';
+
+interface RecipientStateItem extends BulkRecipientItem {
+  status: RecipientStatus;
+  errorMessage?: string;
+}
+
+export const formatWhatsAppPhone = (rawPhone: string): string => {
+  if (!rawPhone) return '';
+  // Convert Arabic-Indic (٠-٩) and Persian (۰-۹) digits to standard Latin digits (0-9)
+  let cleaned = rawPhone
+    .replace(/[٠-٩]/g, (d) => (d.charCodeAt(0) - 1632).toString())
+    .replace(/[۰-۹]/g, (d) => (d.charCodeAt(0) - 1776).toString())
+    .replace(/[^\d+]/g, '');
+
+  if (cleaned.startsWith('+')) {
+    cleaned = cleaned.substring(1);
+  } else if (cleaned.startsWith('00')) {
+    cleaned = cleaned.substring(2);
+  }
+
+  // Iraq formats: 07xxxxxxxxx -> 9647xxxxxxxxx
+  if (cleaned.startsWith('96407')) {
+    cleaned = '964' + cleaned.substring(4);
+  } else if (cleaned.startsWith('07') && cleaned.length === 11) {
+    cleaned = '964' + cleaned.substring(1);
+  } else if (/^7[3-9]\d{8}$/.test(cleaned)) {
+    cleaned = '964' + cleaned;
+  }
+  // Saudi Arabia: 05xxxxxxxx -> 9665xxxxxxxx
+  else if (cleaned.startsWith('96605') && cleaned.length === 13) {
+    cleaned = '966' + cleaned.substring(4);
+  } else if (cleaned.startsWith('05') && cleaned.length === 10) {
+    cleaned = '966' + cleaned.substring(1);
+  } else if (/^5\d{8}$/.test(cleaned)) {
+    cleaned = '966' + cleaned;
+  }
+  // Egypt: 01xxxxxxxxx -> 201xxxxxxxxx
+  else if (cleaned.startsWith('2001') && cleaned.length === 13) {
+    cleaned = '20' + cleaned.substring(3);
+  } else if (/^01[0125]\d{8}$/.test(cleaned)) {
+    cleaned = '2' + cleaned;
+  }
+
+  return cleaned;
+};
+
 export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
   isOpen,
   onClose,
   recipients,
   onSuccess
 }) => {
-  const { success, error: toastError } = useToast();
+  const { success, error: toastError, warning } = useToast();
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
   const [selectedTemplateKey, setSelectedTemplateKey] = useState<string>('bulk_custom_message');
   const [messageText, setMessageText] = useState<string>('');
   const [loadingTemplates, setLoadingTemplates] = useState(false);
+
+  // Staggered Delay config (Anti-ban protection)
+  const [delayValue, setDelayValue] = useState<number>(5);
+  const [delayUnit, setDelayUnit] = useState<'seconds' | 'minutes'>('seconds');
+
+  // Execution Engine states
+  const [recipientList, setRecipientList] = useState<RecipientStateItem[]>([]);
   const [isSending, setIsSending] = useState(false);
-  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState<number>(0);
+  const [countdown, setCountdown] = useState<number>(0);
+  const [completedSummary, setCompletedSummary] = useState<{ success: number; failed: number } | null>(null);
+
+  const isPausedRef = useRef(isPaused);
+  const isCancelledRef = useRef(false);
+
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
 
   useEffect(() => {
     if (!isOpen) return;
+
+    // Initialize recipient state list
+    setRecipientList(
+      recipients.map((r) => ({
+        ...r,
+        status: 'idle'
+      }))
+    );
+    setIsSending(false);
+    setIsPaused(false);
+    setCurrentIndex(0);
+    setCountdown(0);
+    setCompletedSummary(null);
+    isCancelledRef.current = false;
 
     const fetchTemplates = async () => {
       try {
@@ -59,7 +142,6 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
         const list = await whatsappService.getTemplates();
         setTemplates(list);
 
-        // Find bulk_custom_message or use first available
         const defaultTpl =
           list.find((t) => t.key === 'bulk_custom_message') ||
           list.find((t) => t.key === 'status_updated') ||
@@ -81,7 +163,7 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
     };
 
     fetchTemplates();
-  }, [isOpen]);
+  }, [isOpen, recipients]);
 
   const handleSelectTemplate = (key: string) => {
     setSelectedTemplateKey(key);
@@ -99,7 +181,30 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
     setMessageText((prev) => `${prev} {{${varName}}}`);
   };
 
-  // Preview formatting for the first recipient
+  const formatMessageForRecipient = (item: BulkRecipientItem, rawTemplate: string): string => {
+    if (!rawTemplate) return '';
+    return rawTemplate
+      .replace(/{{customer_name}}/g, item.customerName || 'المراجع')
+      .replace(/{{request_number}}/g, item.requestNumber || 'REQ-1001')
+      .replace(/{{ministry}}/g, item.ministry || item.ministryName || 'الجهة الحكومية')
+      .replace(/{{title}}/g, item.title || 'معاملة رسمية')
+      .replace(/{{phone}}/g, item.phoneNumber || '')
+      .replace(
+        /{{tracking_link}}/g,
+        item.trackingLink ||
+          `${window.location.origin}/track/${item.requestNumber || 'REQ-1001'}`
+      );
+  };
+
+  const openWhatsAppDirect = (item: BulkRecipientItem) => {
+    const phone = formatWhatsAppPhone(item.phoneNumber);
+    const msg = formatMessageForRecipient(item, messageText);
+    const encoded = encodeURIComponent(msg);
+    const url = `https://wa.me/${phone}?text=${encoded}`;
+    window.open(url, '_blank');
+  };
+
+  // Preview sample
   const sampleRecipient = recipients[0] || {
     customerName: 'محمد أحمد',
     requestNumber: 'REQ-2026-0001',
@@ -107,58 +212,113 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
     phoneNumber: '07701234567',
     title: 'طلب تخصيص أرض سكنية'
   };
+  const formattedPreview = formatMessageForRecipient(sampleRecipient, messageText);
 
-  const formattedPreview = messageText
-    ? messageText
-        .replace(/{{customer_name}}/g, sampleRecipient.customerName || 'المراجع')
-        .replace(/{{request_number}}/g, sampleRecipient.requestNumber || 'REQ-1001')
-        .replace(/{{ministry}}/g, sampleRecipient.ministry || sampleRecipient.ministryName || 'الجهة الحكومية')
-        .replace(/{{title}}/g, sampleRecipient.title || 'معاملة رسمية')
-        .replace(/{{phone}}/g, sampleRecipient.phoneNumber || '')
-        .replace(
-          /{{tracking_link}}/g,
-          sampleRecipient.trackingLink ||
-            `${window.location.origin}/track/${sampleRecipient.requestNumber || 'REQ-1001'}`
-        )
-    : '';
-
-  const handleSendBulk = async () => {
+  // Sequential Staggered Sender Loop with Live Countdown & Anti-ban Delay
+  const handleStartSequentialSend = async () => {
     if (!messageText.trim()) {
       toastError('يرجى كتابة نص الرسالة قبل الإرسال');
       return;
     }
 
-    if (recipients.length === 0) {
+    if (recipientList.length === 0) {
       toastError('لا يوجد مستلمون محددون');
       return;
     }
 
-    try {
-      setIsSending(true);
-      setProgress({ current: 0, total: recipients.length });
+    const calculatedDelaySec = delayUnit === 'minutes' ? Math.max(1, delayValue) * 60 : Math.max(1, delayValue);
 
-      const res = await whatsappService.sendBulkWhatsApp(
-        recipients,
-        messageText,
-        selectedTemplateKey !== 'custom' ? selectedTemplateKey : undefined
+    setIsSending(true);
+    setIsPaused(false);
+    isCancelledRef.current = false;
+    setCompletedSummary(null);
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < recipientList.length; i++) {
+      if (isCancelledRef.current) break;
+
+      // Handle pause loop
+      while (isPausedRef.current && !isCancelledRef.current) {
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      if (isCancelledRef.current) break;
+
+      setCurrentIndex(i);
+      const currentItem = recipientList[i];
+
+      // Update status to 'sending'
+      setRecipientList((prev) =>
+        prev.map((r, idx) => (idx === i ? { ...r, status: 'sending' } : r))
       );
 
-      success(
-        'تم إرسال الرسائل الجماعية',
-        `تم إرسال ${res.successCount} رسالة واتساب بنجاح${
-          res.failCount > 0 ? ` (فشل ${res.failCount})` : ''
-        }`
-      );
+      const targetPhone = formatWhatsAppPhone(currentItem.phoneNumber);
+      const itemMsg = formatMessageForRecipient(currentItem, messageText);
 
-      if (onSuccess) onSuccess();
-      onClose();
-    } catch (err: any) {
-      console.error('Failed to send bulk whatsapp', err);
-      toastError('فشل الإرسال الجماعي', err.message || 'حدث خطأ أثناء إرسال الرسائل');
-    } finally {
-      setIsSending(false);
-      setProgress(null);
+      try {
+        await whatsappService.sendWhatsApp(
+          targetPhone,
+          itemMsg,
+          selectedTemplateKey !== 'custom' ? selectedTemplateKey : undefined,
+          currentItem.requestId || currentItem.id
+        );
+
+        successCount++;
+        setRecipientList((prev) =>
+          prev.map((r, idx) => (idx === i ? { ...r, status: 'sent' } : r))
+        );
+      } catch (err: any) {
+        console.warn(`Failed to send to ${targetPhone}`, err);
+        failCount++;
+        setRecipientList((prev) =>
+          prev.map((r, idx) =>
+            idx === i
+              ? {
+                  ...r,
+                  status: 'failed',
+                  errorMessage: err?.response?.data?.message || err?.message || 'تعذر الإرسال عبر البوابة'
+                }
+              : r
+          )
+        );
+      }
+
+      // If not the last item, apply anti-ban countdown delay
+      if (i < recipientList.length - 1 && !isCancelledRef.current) {
+        for (let s = calculatedDelaySec; s > 0; s--) {
+          if (isCancelledRef.current) break;
+          while (isPausedRef.current && !isCancelledRef.current) {
+            await new Promise((r) => setTimeout(r, 500));
+          }
+          setCountdown(s);
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+        setCountdown(0);
+      }
     }
+
+    setIsSending(false);
+    setCompletedSummary({ success: successCount, failed: failCount });
+
+    if (!isCancelledRef.current) {
+      if (failCount === 0) {
+        success('تم الإرسال بنجاح', `تم إرسال ${successCount} رسالة واتساب لجميع المستلمين المحددين.`);
+        if (onSuccess) onSuccess();
+      } else {
+        warning(
+          'اكتملت عملية الإرسال مع تنبيهات',
+          `تم بنجاح: ${successCount} | فشل: ${failCount} (يمكنك فتح المحادثات الفاشلة عبر زر واتساب ويب)`
+        );
+      }
+    }
+  };
+
+  const handleStop = () => {
+    isCancelledRef.current = true;
+    setIsSending(false);
+    setIsPaused(false);
+    setCountdown(0);
   };
 
   const availableVariables = [
@@ -170,11 +330,15 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
     { key: 'tracking_link', label: 'رابط التتبع' }
   ];
 
+  const sentCount = recipientList.filter((r) => r.status === 'sent').length;
+  const failedCount = recipientList.filter((r) => r.status === 'failed').length;
+  const progressPercent = recipientList.length > 0 ? Math.round(((sentCount + failedCount) / recipientList.length) * 100) : 0;
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} maxWidth="2xl" title="إرسال رسائل WhatsApp مخصصة للمحددين">
+    <Modal isOpen={isOpen} onClose={isSending ? () => {} : onClose} maxWidth="2xl" title="إرسال رسائل WhatsApp مخصصة للمحددين">
       <div className="space-y-5 text-right" dir="rtl">
         {/* Recipients Counter Card */}
-        <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md shrink-0">
               <Users className="w-5 h-5" />
@@ -184,13 +348,49 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
                 المستلمون المختارون: ({recipients.length}) مراجع / معاملة
               </h4>
               <p className="text-xs text-emerald-700">
-                سيتم إرسال رسالة واتساب مخصصة لكل مستلم باسمه ومعلومات معاملته تلقائياً
+                سيتم توليد رسالة واتساب مخصصة لكل مستلم باسمه ومعلومات معاملته تلقائياً
               </p>
             </div>
           </div>
-          <span className="px-3 py-1 bg-emerald-200/80 text-emerald-900 rounded-full text-xs font-black">
+          <span className="px-3.5 py-1.5 bg-emerald-200/80 text-emerald-900 rounded-full text-xs font-black self-start sm:self-center shadow-xs">
             {recipients.length} مستلم
           </span>
+        </div>
+
+        {/* Delay / Anti-Ban Configuration Box */}
+        <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-3.5 space-y-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <label className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+              <Timer className="w-4 h-4 text-amber-600" />
+              <span>الفارق الزمني بين كل رسالة وأخرى (تجنب الحظر من واتساب):</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="1"
+                max="300"
+                value={delayValue}
+                onChange={(e) => setDelayValue(Math.max(1, parseInt(e.target.value) || 1))}
+                disabled={isSending}
+                className="w-20 px-2.5 py-1.5 bg-white border border-amber-300 rounded-xl text-center font-bold font-mono text-sm text-amber-950 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
+              />
+              <select
+                value={delayUnit}
+                onChange={(e) => setDelayUnit(e.target.value as any)}
+                disabled={isSending}
+                className="px-3 py-1.5 bg-white border border-amber-300 rounded-xl text-xs font-bold text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-xs"
+              >
+                <option value="seconds">ثانية (Seconds)</option>
+                <option value="minutes">دقيقة (Minutes)</option>
+              </select>
+            </div>
+          </div>
+          <p className="text-[11px] text-amber-800 leading-relaxed flex items-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            <span>
+              نظام الحماية من الحظر: يقوم النظام بانتظار الفارق الزمني المحدد بين كل رسالة والأخرى لمحاكاة الإرسال البشري الطبيعي وحماية رقمك من قيود واتساب.
+            </span>
+          </p>
         </div>
 
         {/* Template Selector */}
@@ -243,7 +443,7 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
             نص الرسالة (يمكنك تعديله قبل الإرسال):
           </label>
           <textarea
-            rows={5}
+            rows={4}
             value={messageText}
             onChange={(e) => setMessageText(e.target.value)}
             disabled={isSending}
@@ -257,11 +457,17 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
           <div className="flex items-center justify-between text-xs font-bold text-slate-600">
             <span className="flex items-center gap-1.5">
               <Eye className="w-3.5 h-3.5 text-emerald-600" />
-              معاينة حية لشكل الرسالة (للمستلم الأول: {sampleRecipient.customerName || 'المراجع'}):
+              معاينة حية للرسالة (للمستلم: {sampleRecipient.customerName || 'المراجع'}):
             </span>
-            <span className="text-[11px] text-slate-400 font-mono">
-              {sampleRecipient.phoneNumber || ''}
-            </span>
+            <button
+              type="button"
+              onClick={() => openWhatsAppDirect(sampleRecipient)}
+              className="text-[11px] text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-1 hover:underline"
+              title="تجربة الفتح في واتساب ويب مباشرة"
+            >
+              <ExternalLink className="w-3 h-3" />
+              <span>فتح تجريبي في WhatsApp Web</span>
+            </button>
           </div>
           <div className="bg-[#e5ddd5] p-3.5 rounded-2xl border border-slate-300/80 shadow-inner">
             <div className="bg-white rounded-xl p-3 max-w-md ml-auto rounded-tr-none shadow-sm space-y-1.5 text-right border border-emerald-100">
@@ -276,44 +482,154 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
           </div>
         </div>
 
-        {/* Sending Progress */}
+        {/* Active Sending Progress Dashboard */}
         {isSending && (
-          <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl space-y-2">
-            <div className="flex items-center justify-between text-xs font-bold text-blue-900">
+          <div className="p-4 bg-slate-900 text-white rounded-2xl space-y-3 shadow-xl border border-slate-800 animate-in fade-in duration-150">
+            <div className="flex items-center justify-between text-xs font-bold">
               <span className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-blue-600 animate-spin" />
-                جارٍ إرسال رسائل WhatsApp للمراجعين...
+                <Clock className="w-4 h-4 text-emerald-400 animate-spin" />
+                <span>
+                  جارٍ الإرسال: {sentCount + failedCount + 1} من {recipientList.length}
+                </span>
               </span>
-              <span>{recipients.length} رسالة</span>
+              <span className="font-mono text-emerald-400">{progressPercent}%</span>
             </div>
-            <div className="w-full h-2 bg-blue-200 rounded-full overflow-hidden">
-              <div className="h-full bg-emerald-600 animate-pulse w-full"></div>
+
+            {/* Progress Bar */}
+            <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden p-0.5">
+              <div
+                className="h-full bg-emerald-500 rounded-full transition-all duration-300"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+
+            {/* Live Status & Countdown */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs pt-1 border-t border-slate-800">
+              <div className="flex items-center gap-3">
+                <span className="text-emerald-400">✓ تم بنجاح: {sentCount}</span>
+                {failedCount > 0 && <span className="text-rose-400">✗ فشل: {failedCount}</span>}
+              </div>
+
+              {countdown > 0 && (
+                <div className="flex items-center gap-1.5 text-amber-300 font-bold font-mono animate-pulse">
+                  <Timer className="w-3.5 h-3.5 text-amber-400" />
+                  <span>الرسالة التالية خلال {countdown} ثانية...</span>
+                </div>
+              )}
+            </div>
+
+            {/* Execution Controls */}
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsPaused(!isPaused)}
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold flex items-center gap-1.5 transition"
+              >
+                {isPaused ? <Play className="w-3.5 h-3.5 text-emerald-400" /> : <Pause className="w-3.5 h-3.5 text-amber-400" />}
+                <span>{isPaused ? 'استئناف الإرسال' : 'إيقاف مؤقت'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleStop}
+                className="px-3 py-1.5 rounded-xl bg-rose-600/30 hover:bg-rose-600 text-rose-200 hover:text-white text-xs font-bold flex items-center gap-1.5 transition border border-rose-500/40"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                <span>إلغاء العملية</span>
+              </button>
             </div>
           </div>
         )}
 
-        {/* Actions Footer */}
-        <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-            disabled={isSending}
-          >
-            إلغاء
-          </Button>
+        {/* Completed Summary / Failed items fallback */}
+        {completedSummary && (
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+            <div className="flex items-center justify-between">
+              <h5 className="text-xs font-bold text-slate-800">تقرير نتيجة الإرسال الجماعي:</h5>
+              <div className="flex items-center gap-2 text-xs font-bold">
+                <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-lg">
+                  نجاح: {completedSummary.success}
+                </span>
+                {completedSummary.failed > 0 && (
+                  <span className="px-2.5 py-1 bg-rose-100 text-rose-800 rounded-lg">
+                    تعذر: {completedSummary.failed}
+                  </span>
+                )}
+              </div>
+            </div>
 
-          <Button
-            type="button"
-            variant="primary"
-            onClick={handleSendBulk}
-            disabled={isSending || recipients.length === 0 || !messageText.trim()}
-            isLoading={isSending}
-            icon={<Send className="w-4 h-4" />}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 shadow-md shadow-emerald-600/20"
-          >
-            {isSending ? 'جارٍ الإرسال...' : `إرسال WhatsApp لـ (${recipients.length}) مراجع`}
-          </Button>
+            {completedSummary.failed > 0 && (
+              <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                <p className="text-[11px] text-slate-500 font-medium">
+                  المستلمون الذين تعذر إرسال الرسالة لهم عبر الخادم (يمكنك فتح المحادثة مباشرة):
+                </p>
+                {recipientList
+                  .filter((r) => r.status === 'failed')
+                  .map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="p-2 bg-white rounded-xl border border-rose-200 flex items-center justify-between text-xs"
+                    >
+                      <div>
+                        <span className="font-bold text-slate-800">{item.customerName || 'المراجع'}</span>
+                        <span className="font-mono text-slate-500 text-[11px] mr-2">({item.phoneNumber})</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => openWhatsAppDirect(item)}
+                        className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 transition"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        <span>إرسال عبر WhatsApp Web</span>
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Actions Footer */}
+        <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+          <div className="text-[11px] text-slate-400">
+            {isSending ? 'جارٍ المعالجة مع الحفاظ على الفاصل الزمني...' : 'جاهز للإرسال'}
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isSending}
+            >
+              {completedSummary ? 'إغلاق' : 'إلغاء'}
+            </Button>
+
+            {!completedSummary ? (
+              <Button
+                type="button"
+                variant="primary"
+                onClick={handleStartSequentialSend}
+                disabled={isSending || recipients.length === 0 || !messageText.trim()}
+                isLoading={isSending}
+                icon={<Send className="w-4 h-4" />}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 shadow-md shadow-emerald-600/20"
+              >
+                {isSending ? 'جارٍ الإرسال...' : `إرسال WhatsApp لـ (${recipients.length}) مراجع`}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => {
+                  if (onSuccess) onSuccess();
+                  onClose();
+                }}
+                className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-6"
+              >
+                تم والعودة
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </Modal>

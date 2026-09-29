@@ -274,7 +274,7 @@ export const CustomersListPage: React.FC = () => {
                       <td className="py-3.5 px-4 text-center">
                         <div className="flex items-center justify-center gap-1">
                           <button
-                            onClick={() => navigate(`/requests/create?customerId=${cust.id}`)}
+                            onClick={() => navigate(`/requests/new?customerId=${cust.id}`)}
                             className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition"
                             title="إنشاء معاملة جديدة لهذا المراجع"
                           >

@@ -196,7 +196,7 @@ export const CustomerDetailsPage: React.FC = () => {
             <Button
               variant="primary"
               size="sm"
-              onClick={() => navigate('/requests/new')}
+              onClick={() => navigate(`/requests/new?customerId=${customer.id}`)}
               icon={<Plus className="w-4 h-4" />}
             >
               + إضافة معاملة
