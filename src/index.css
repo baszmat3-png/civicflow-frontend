@@ -17,19 +17,68 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
-  /* Custom scrollbar styling */
+  /* Custom scrollbar styling for web and mobile */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
   ::-webkit-scrollbar-track {
-    background: transparent;
+    background: #f1f5f9;
+    border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-slate-300 rounded-full;
+    @apply bg-slate-400 rounded-full;
   }
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-slate-400;
+    @apply bg-slate-500;
+  }
+}
+
+/* Custom horizontal scrollbar class for mobile & desktop */
+.custom-scrollbar-x {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f1f5f9;
+  -webkit-overflow-scrolling: touch;
+}
+
+.custom-scrollbar-x::-webkit-scrollbar {
+  height: 6px;
+  display: block !important;
+}
+
+.custom-scrollbar-x::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 9999px;
+}
+
+.custom-scrollbar-x::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 9999px;
+}
+
+.custom-scrollbar-x::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Ensure mobile scrollbars on all tables and scroll containers are clearly visible */
+@media (max-width: 768px) {
+  .overflow-x-auto {
+    scrollbar-width: thin;
+    scrollbar-color: #94a3b8 #f1f5f9;
+    -webkit-overflow-scrolling: touch;
+  }
+  .overflow-x-auto::-webkit-scrollbar {
+    height: 6px;
+    display: block !important;
+  }
+  .overflow-x-auto::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 9999px;
+  }
+  .overflow-x-auto::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border-radius: 9999px;
   }
 }
 
