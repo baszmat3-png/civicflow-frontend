@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useData } from '../../context/DataContext';
+import { useToast } from '../../context/ToastContext';
 import { StatCard } from '../../components/common/StatCard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { PriorityBadge, DeadlineBadge } from '../../components/common/PriorityBadge';
+import { appointmentService, AppointmentItem } from '../../services/appointmentService';
 import {
   FileText,
   Clock,
@@ -20,11 +22,18 @@ import {
   Activity,
   User,
   Flame,
-  FileCheck2
+  FileCheck2,
+  FolderArchive,
+  CalendarClock,
+  Check,
+  X,
+  Phone,
+  MessageSquare
 } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const { success, warning, error: toastError } = useToast();
   const {
     requests,
     ministries,
@@ -35,6 +44,55 @@ export const DashboardPage: React.FC = () => {
     totalRequestsCount,
     loading
   } = useData();
+
+  const [pendingAppointments, setPendingAppointments] = useState<AppointmentItem[]>([]);
+  const [loadingAppointments, setLoadingAppointments] = useState(false);
+  const [processingAptId, setProcessingAptId] = useState<string | null>(null);
+
+  const fetchPendingAppointments = async () => {
+    try {
+      setLoadingAppointments(true);
+      const list = await appointmentService.getAppointments({ status: 'PENDING' });
+      setPendingAppointments(list);
+    } catch (err) {
+      console.warn('Could not fetch pending appointments for dashboard:', err);
+    } finally {
+      setLoadingAppointments(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPendingAppointments();
+  }, []);
+
+  const handleConfirmAppointment = async (apt: AppointmentItem) => {
+    try {
+      setProcessingAptId(apt.id);
+      await appointmentService.updateStatus(apt.id, { status: 'CONFIRMED' });
+      success('تم تأكيد الموعد بنجاح', `تم قبول موعد ${apt.customerName} وإرسال رسالة تأكيد عبر واتساب`);
+      setPendingAppointments((prev) => prev.filter((item) => item.id !== apt.id));
+    } catch (err: any) {
+      toastError('تعذر تأكيد الموعد', err.message || 'حدث خطأ أثناء معالجة الموعد');
+    } finally {
+      setProcessingAptId(null);
+    }
+  };
+
+  const handleRejectAppointment = async (apt: AppointmentItem) => {
+    const reason = window.prompt('يرجى كتابة سبب الاعتذار أو الملاحظة للمواطن:', 'نعتذر لعدم توفر موعد مناسب في الوقت المحدد');
+    if (reason === null) return; // User cancelled
+
+    try {
+      setProcessingAptId(apt.id);
+      await appointmentService.updateStatus(apt.id, { status: 'REJECTED', adminNotes: reason });
+      warning('تم الاعتذار عن الموعد', `تم تحديث الموعد وإرسال إشعار اعتذار للمواطن عبر واتساب`);
+      setPendingAppointments((prev) => prev.filter((item) => item.id !== apt.id));
+    } catch (err: any) {
+      toastError('تعذر رفض الموعد', err.message || 'حدث خطأ أثناء معالجة الموعد');
+    } finally {
+      setProcessingAptId(null);
+    }
+  };
 
   // Highlight requests
   const overdueRequests = requests.filter((r) => r.deadlineStatus === 'متأخر');
@@ -84,19 +142,45 @@ export const DashboardPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <Button
             variant="primary"
-            size="lg"
+            size="md"
             onClick={() => navigate('/requests/new')}
-            icon={<Plus className="w-5 h-5" />}
-            className="shadow-lg shadow-blue-600/30"
+            icon={<Plus className="w-4 h-4" />}
+            className="shadow-lg shadow-blue-600/30 font-bold"
           >
             + إضافة طلب جديد
           </Button>
+
           <Button
             variant="secondary"
-            size="lg"
+            size="md"
+            onClick={() => navigate('/registry/outgoing')}
+            icon={<FolderArchive className="w-4 h-4 text-blue-400" />}
+            className="bg-slate-800 hover:bg-slate-700 text-white border-slate-700"
+          >
+            سجل الصادر والوارد
+          </Button>
+
+          <Button
+            variant="secondary"
+            size="md"
+            onClick={() => navigate('/appointments')}
+            icon={<CalendarClock className="w-4 h-4 text-emerald-400" />}
+            className="bg-slate-800 hover:bg-slate-700 text-white border-slate-700 relative"
+          >
+            <span>حجز المواعيد</span>
+            {pendingAppointments.length > 0 && (
+              <span className="mr-1.5 px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black animate-pulse">
+                {pendingAppointments.length} معلق
+              </span>
+            )}
+          </Button>
+
+          <Button
+            variant="secondary"
+            size="md"
             onClick={() => navigate('/reports')}
             className="bg-slate-800 hover:bg-slate-700 text-white border-slate-700"
           >
@@ -138,7 +222,6 @@ export const DashboardPage: React.FC = () => {
           icon={<Flame className="w-5 h-5" />}
           color="rose"
           trend={overdueRequests.length > 0 ? { value: 'تنبيه عاجل', isPositive: false } : undefined}
-          onClick={() => navigate('/requests?overdue=true')}
           className={overdueRequests.length > 0 ? "border-rose-200 ring-2 ring-rose-100 bg-rose-50/30" : ""}
         />
         <StatCard
@@ -159,6 +242,110 @@ export const DashboardPage: React.FC = () => {
           onClick={() => navigate('/requests?status=مطلوب+مستندات')}
         />
       </div>
+
+      {/* Section: Pending Appointment Requests (طلبات حجز المواعيد الجديدة) */}
+      <Card className="rounded-3xl border-slate-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <CardHeader className="bg-slate-50/80 dark:bg-gray-750 border-b border-slate-200 dark:border-gray-700 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 flex items-center justify-center">
+              <CalendarClock className="w-4 h-4" />
+            </div>
+            <div>
+              <CardTitle className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                طلبات حجز المواعيد والمقابلات الواردة
+                {pendingAppointments.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">
+                    {pendingAppointments.length} طلب بانتظار الموافقة
+                  </span>
+                )}
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-500">
+                مراجعة طلبات المواطنين لمقابلة النائب أو مدير المكتب مع إشعار تلقائي عبر واتساب
+              </CardDescription>
+            </div>
+          </div>
+
+          <Link
+            to="/appointments"
+            className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+          >
+            فتح تقويم المواعيد
+            <ArrowLeft className="w-3.5 h-3.5" />
+          </Link>
+        </CardHeader>
+
+        <CardContent className="p-4">
+          {loadingAppointments ? (
+            <div className="py-6 text-center text-xs text-slate-400">جاري تحميل طلبات المواعيد...</div>
+          ) : pendingAppointments.length === 0 ? (
+            <div className="py-6 text-center text-xs text-slate-500 flex flex-col items-center justify-center gap-2">
+              <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+              <span>لا توجد طلبات مواعيد معلقة حالياً — كافة المواعيد منظمة ومجدولة بنجاح.</span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {pendingAppointments.map((apt) => (
+                <div
+                  key={apt.id}
+                  className="p-4 rounded-2xl bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 shadow-xs space-y-3"
+                >
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-gray-700">
+                    <div>
+                      <span className="font-bold text-sm text-slate-900 dark:text-white block">
+                        {apt.customerName}
+                      </span>
+                      <span className="text-[11px] text-slate-500 font-mono flex items-center gap-1 mt-0.5">
+                        <Phone className="w-3 h-3 text-slate-400" />
+                        {apt.customerPhone}
+                      </span>
+                    </div>
+
+                    <span className="px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-bold">
+                      {apt.targetPerson === 'DEPUTY' ? 'سعادة النائب' : 'مدير المكتب'}
+                    </span>
+                  </div>
+
+                  <div className="text-xs space-y-1 text-slate-600 dark:text-gray-300">
+                    <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                      <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                      <span>{new Date(apt.appointmentDate).toISOString().split('T')[0]}</span>
+                      <span className="text-slate-400">|</span>
+                      <Clock className="w-3.5 h-3.5 text-blue-600" />
+                      <span>{apt.timeSlot}</span>
+                    </div>
+
+                    <p className="text-xs text-slate-700 dark:text-gray-200 line-clamp-2 pt-1">
+                      <strong>الموضوع:</strong> {apt.purpose}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-gray-700">
+                    <button
+                      type="button"
+                      disabled={processingAptId === apt.id}
+                      onClick={() => handleConfirmAppointment(apt)}
+                      className="flex-1 py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center justify-center gap-1 shadow-xs disabled:opacity-50"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      {processingAptId === apt.id ? 'جاري التأكيد...' : 'قبول الموعد'}
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={processingAptId === apt.id}
+                      onClick={() => handleRejectAppointment(apt)}
+                      className="py-1.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition flex items-center justify-center gap-1 border border-rose-200 disabled:opacity-50"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      اعتذار
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Section 1: Overdue Urgent Alert Banner & Requests */}
       {overdueRequests.length > 0 && (
