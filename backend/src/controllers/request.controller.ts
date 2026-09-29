@@ -13,6 +13,7 @@ import { whatsappNotificationService } from '../services/whatsapp/whatsappNotifi
 import { verifyAndValidateUploadedFile, cleanupFile } from '../utils/fileIntegrity.js';
 import { autoAssignRequestToEmployee } from '../services/autoAssign.service.js';
 import { checkDuplicateRequest } from '../services/duplicateDetector.service.js';
+import { realtimeService } from '../services/realtime.service.js';
 
 const createRequestSchema = z.object({
   customerId: z.string().min(1, 'المراجع مطلوب'),
@@ -544,6 +545,23 @@ export const createRequest = async (req: Request, res: Response, next: NextFunct
       }
     }
 
+    // Real-time SSE Broadcast
+    try {
+      realtimeService.notifyNewRequest({
+        id: newRequest.id,
+        requestNumber: newRequest.requestNumber,
+        title: newRequest.title,
+        customerName: newRequest.customer?.name || 'مراجع',
+        phone: newRequest.customer?.phone,
+        ministryName: newRequest.ministry?.name,
+        status: newRequest.status,
+        priority: newRequest.priority,
+        source: 'النظام الداخلي'
+      });
+    } catch (sseErr) {
+      console.warn('⚠️ Realtime request broadcast error:', sseErr);
+    }
+
     return sendSuccess(res, formatRequestItem(newRequest), 'تم إنشاء المعاملة بنجاح', 201);
   } catch (error) {
     next(error);
@@ -638,6 +656,17 @@ export const updateRequest = async (req: Request, res: Response, next: NextFunct
 
       return reqUpdated;
     });
+
+    // Realtime Broadcast
+    try {
+      realtimeService.notifyRequestUpdated({
+        id: updated.id,
+        requestNumber: updated.requestNumber,
+        status: updated.status
+      });
+    } catch (sseErr) {
+      console.warn('⚠️ Realtime update broadcast error:', sseErr);
+    }
 
     return sendSuccess(res, formatRequestItem(updated), 'تم تحديث بيانات المعاملة بنجاح');
   } catch (error) {
@@ -892,6 +921,17 @@ export const changeRequestStatus = async (req: Request, res: Response, next: Nex
       }
     }
 
+    // Realtime Broadcast
+    try {
+      realtimeService.notifyRequestUpdated({
+        id: updated.id,
+        requestNumber: updated.requestNumber,
+        status: updated.status
+      });
+    } catch (sseErr) {
+      console.warn('⚠️ Realtime status update broadcast error:', sseErr);
+    }
+
     return sendSuccess(res, formatRequestItem(updated), 'تم تغيير حالة المعاملة بنجاح');
   } catch (error) {
     next(error);
@@ -965,6 +1005,17 @@ export const assignRequest = async (req: Request, res: Response, next: NextFunct
       return reqUpdated;
     });
 
+    // Realtime Broadcast
+    try {
+      realtimeService.notifyRequestUpdated({
+        id: updated.id,
+        requestNumber: updated.requestNumber,
+        status: updated.status
+      });
+    } catch (sseErr) {
+      console.warn('⚠️ Realtime assign broadcast error:', sseErr);
+    }
+
     return sendSuccess(res, formatRequestItem(updated), `تم إسناد المعاملة للموظف ${employee.name} بنجاح`);
   } catch (error) {
     next(error);
@@ -1000,6 +1051,13 @@ export const deleteRequest = async (req: Request, res: Response, next: NextFunct
         });
       }
     });
+
+    // Realtime Broadcast
+    try {
+      realtimeService.broadcast('request_deleted', { id, requestNumber: existing.requestNumber });
+    } catch (sseErr) {
+      console.warn('⚠️ Realtime delete broadcast error:', sseErr);
+    }
 
     return sendSuccess(res, null, 'تم حذف المعاملة بنجاح');
   } catch (error) {

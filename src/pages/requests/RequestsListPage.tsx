@@ -97,6 +97,33 @@ export const RequestsListPage: React.FC = () => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Real-time live arrival alert banner
+  const [realtimeAlert, setRealtimeAlert] = useState<{
+    id?: string;
+    requestNumber: string;
+    customerName: string;
+    source?: string;
+  } | null>(null);
+
+  React.useEffect(() => {
+    const handleNewRequest = (e: any) => {
+      const detail = e.detail;
+      if (detail) {
+        setRealtimeAlert({
+          id: detail.id,
+          requestNumber: detail.requestNumber,
+          customerName: detail.customerName || 'مراجع',
+          source: detail.source || 'بوابة المراجعين'
+        });
+      }
+    };
+
+    window.addEventListener('civicflow_new_request', handleNewRequest);
+    return () => {
+      window.removeEventListener('civicflow_new_request', handleNewRequest);
+    };
+  }, []);
+
   // Helper to distinguish portal received requests
   const isPublicReceived = (r: RequestItem) => {
     const hasPortalTimeline =
@@ -396,6 +423,51 @@ export const RequestsListPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Live Real-time Arrival Alert Banner */}
+      {realtimeAlert && (
+        <div className="bg-emerald-50 border-2 border-emerald-500/40 rounded-2xl p-4 shadow-md flex items-center justify-between gap-4 animate-in fade-in slide-in-from-top duration-300">
+          <div className="flex items-center gap-3">
+            <span className="flex h-3.5 w-3.5 relative flex-shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-600"></span>
+            </span>
+            <div>
+              <div className="text-sm font-black text-emerald-900 flex items-center gap-2">
+                <span>⚡ وصول معاملة جديدة لحظياً!</span>
+                <span className="px-2 py-0.5 text-xs bg-emerald-200/80 text-emerald-800 rounded-md font-mono font-bold">
+                  {realtimeAlert.requestNumber}
+                </span>
+                <span className="text-xs font-normal text-emerald-700">
+                  (بواسطة: {realtimeAlert.customerName} - {realtimeAlert.source})
+                </span>
+              </div>
+              <p className="text-xs text-emerald-700 mt-0.5">
+                تم تحديث جدول الطلبات تلقائياً دون الحاجة لتحديث الصفحة.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {realtimeAlert.id && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate(`/requests/${realtimeAlert.id}`)}
+                className="bg-white hover:bg-emerald-100 text-emerald-800 border-emerald-300 text-xs font-bold"
+              >
+                عرض المعاملة
+              </Button>
+            )}
+            <button
+              onClick={() => setRealtimeAlert(null)}
+              className="text-emerald-600 hover:text-emerald-900 p-1.5 rounded-lg hover:bg-emerald-100 transition-colors"
+              title="إغلاق التنبيه"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Source Isolation Tabs Bar */}
       <div className="flex flex-wrap items-center gap-2 pb-1">

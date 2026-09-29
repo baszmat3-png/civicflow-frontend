@@ -3,6 +3,7 @@ import { prisma } from '../config/database.js';
 import { AppError } from '../middlewares/error.middleware.js';
 import { sendSuccess } from '../utils/apiResponse.js';
 import { whatsappNotificationService } from '../services/whatsapp/whatsappNotification.service.js';
+import { realtimeService } from '../services/realtime.service.js';
 
 const DAYS_AR = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 
@@ -155,6 +156,13 @@ export const bookPublicAppointment = async (req: Request, res: Response, next: N
       console.warn('⚠️ Could not send WhatsApp for appointment booking:', waErr);
     }
 
+    // Realtime Broadcast to Admins/Dashboard
+    try {
+      realtimeService.notifyNewAppointment(appointment);
+    } catch (sseErr) {
+      console.warn('⚠️ Realtime appointment broadcast error:', sseErr);
+    }
+
     return sendSuccess(
       res,
       appointment,
@@ -243,6 +251,13 @@ export const updateAppointmentStatus = async (req: Request, res: Response, next:
       } catch (waErr) {
         console.warn('⚠️ Could not send WhatsApp for rejected appointment:', waErr);
       }
+    }
+
+    // Realtime Broadcast
+    try {
+      realtimeService.notifyAppointmentUpdated(updated);
+    } catch (sseErr) {
+      console.warn('⚠️ Realtime appointment update broadcast error:', sseErr);
     }
 
     return sendSuccess(res, updated, 'تم تحديث حالة الموعد بنجاح');

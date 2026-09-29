@@ -18,6 +18,7 @@ import { appointmentRouter } from './appointment.routes.js';
 import { ratingRouter } from './rating.routes.js';
 import { registryRouter } from './registry.routes.js';
 import { transparencyRouter } from './transparency.routes.js';
+import { realtimeRouter } from './realtime.routes.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
 import { requirePermission } from '../middlewares/rbac.middleware.js';
 import { sendSuccess } from '../utils/apiResponse.js';
@@ -27,6 +28,8 @@ export const apiRouter = Router();
 // Public routes
 apiRouter.use('/public', publicRouter);
 apiRouter.use('/transparency', transparencyRouter);
+apiRouter.use('/realtime', realtimeRouter);
+apiRouter.use('/events', realtimeRouter);
 
 // Core Modules
 apiRouter.use('/auth', authRouter);

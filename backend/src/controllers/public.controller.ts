@@ -14,6 +14,7 @@ import { env } from '../config/env.js';
 import { verifyAndValidateUploadedFile, cleanupFile, formatBytes } from '../utils/fileIntegrity.js';
 import { hashPassword, comparePassword } from '../utils/password.js';
 import { autoAssignRequestToEmployee } from '../services/autoAssign.service.js';
+import { realtimeService } from '../services/realtime.service.js';
 
 const optionalString = z.preprocess(
   (v) => (v === null || v === undefined || v === '' ? undefined : String(v).trim()),
@@ -426,6 +427,23 @@ export const submitPublicRequest = async (req: Request, res: Response, next: Nex
       console.log(`✅ [PUBLIC REQUEST] WhatsApp confirmation dispatched to ${data.phone} for ${result.requestNumber}`);
     } catch (waErr) {
       console.warn('⚠️ Could not send WhatsApp to citizen:', waErr);
+    }
+
+    // Broadcast real-time SSE event to all connected dashboard clients
+    try {
+      realtimeService.notifyNewRequest({
+        id: result.id,
+        requestNumber: result.requestNumber,
+        title: result.title,
+        customerName: data.name,
+        phone: data.phone,
+        ministryName: ministry.name,
+        status: result.status,
+        priority: 'عادي',
+        source: 'بوابة المراجعين'
+      });
+    } catch (sseErr) {
+      console.warn('⚠️ Realtime SSE broadcast error:', sseErr);
     }
 
     return sendSuccess(

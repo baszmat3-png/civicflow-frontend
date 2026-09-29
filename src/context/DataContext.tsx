@@ -36,6 +36,7 @@ import {
   markAllNotificationsAsRead,
   updateSystemSettings
 } from '../services/api';
+import { realtimeService } from '../services/realtimeService';
 
 interface DataContextType {
   requests: RequestItem[];
@@ -164,13 +165,55 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     refreshData();
 
+    // 1. Subscribe to Real-Time Server-Sent Events (SSE)
+    const unsubNewReq = realtimeService.subscribe('new_request', (data) => {
+      console.log('⚡ [DataContext] Instant SSE new_request received:', data);
+      refreshData();
+    });
+
+    const unsubReqUpdate = realtimeService.subscribe('request_updated', () => {
+      refreshData();
+    });
+
+    const unsubReqDelete = realtimeService.subscribe('request_deleted', () => {
+      refreshData();
+    });
+
+    const unsubNewApt = realtimeService.subscribe('new_appointment', () => {
+      refreshData();
+    });
+
+    const unsubAptUpdate = realtimeService.subscribe('appointment_updated', () => {
+      refreshData();
+    });
+
+    const unsubRating = realtimeService.subscribe('new_rating', () => {
+      refreshData();
+    });
+
+    // 2. Window Custom Events fallback
     const handleStorageUpdate = () => {
       refreshData();
     };
 
     window.addEventListener('civicflow_data_updated', handleStorageUpdate);
     window.addEventListener('civicflow_auth_login', handleStorageUpdate);
+
+    // 3. Gentle background polling interval (every 20s) as secondary safety net when page is active
+    const pollInterval = setInterval(() => {
+      if (document.visibilityState === 'visible' && !document.hidden) {
+        refreshData();
+      }
+    }, 20000);
+
     return () => {
+      unsubNewReq();
+      unsubReqUpdate();
+      unsubReqDelete();
+      unsubNewApt();
+      unsubAptUpdate();
+      unsubRating();
+      clearInterval(pollInterval);
       window.removeEventListener('civicflow_data_updated', handleStorageUpdate);
       window.removeEventListener('civicflow_auth_login', handleStorageUpdate);
     };
