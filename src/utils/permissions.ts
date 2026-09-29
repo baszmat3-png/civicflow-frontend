@@ -61,6 +61,18 @@ export const PERMISSIONS = {
   WHATSAPP_SEND: 'whatsapp.send',
   WHATSAPP_MANAGE: 'whatsapp.manage',
 
+  // Appointments
+  APPOINTMENTS_VIEW: 'appointments.view',
+  APPOINTMENTS_CREATE: 'appointments.create',
+  APPOINTMENTS_UPDATE: 'appointments.update',
+  APPOINTMENTS_DELETE: 'appointments.delete',
+
+  // Registry (Outgoing & Incoming)
+  REGISTRY_VIEW: 'registry.view',
+  REGISTRY_CREATE: 'registry.create',
+  REGISTRY_UPDATE: 'registry.update',
+  REGISTRY_DELETE: 'registry.delete',
+
   // Settings
   SETTINGS_MANAGE: 'settings.manage'
 } as const;
@@ -77,6 +89,8 @@ const ROLE_DEFAULT_PERMISSIONS: Record<string, string[]> = {
     'request_types.view', 'request_types.create', 'request_types.update', 'request_types.delete',
     'users.view', 'users.create', 'users.update', 'users.delete',
     'roles.view', 'roles.manage',
+    'appointments.view', 'appointments.create', 'appointments.update', 'appointments.delete',
+    'registry.view', 'registry.create', 'registry.update', 'registry.delete',
     'reports.view', 'reports.export', 'reports.export_pdf',
     'notifications.view',
     'whatsapp.view', 'whatsapp.send', 'whatsapp.manage',
@@ -90,6 +104,8 @@ const ROLE_DEFAULT_PERMISSIONS: Record<string, string[]> = {
     'cities.view', 'cities.create', 'cities.update',
     'request_types.view', 'request_types.create', 'request_types.update',
     'users.view', 'users.create', 'users.update', 'users.delete',
+    'appointments.view', 'appointments.create', 'appointments.update',
+    'registry.view', 'registry.create', 'registry.update',
     'reports.view', 'reports.export', 'reports.export_pdf',
     'notifications.view',
     'whatsapp.view', 'whatsapp.send',
@@ -101,6 +117,8 @@ const ROLE_DEFAULT_PERMISSIONS: Record<string, string[]> = {
     'ministries.view',
     'cities.view',
     'request_types.view',
+    'appointments.view',
+    'registry.view',
     'reports.view', 'reports.export', 'reports.export_pdf',
     'notifications.view'
   ],
@@ -109,6 +127,8 @@ const ROLE_DEFAULT_PERMISSIONS: Record<string, string[]> = {
     'customers.view', 'customers.create',
     'ministries.view',
     'cities.view',
+    'appointments.view', 'appointments.create',
+    'registry.view', 'registry.create',
     'notifications.view'
   ]
 };
@@ -168,6 +188,19 @@ export const canAccessModule = (user: Employee | null, moduleName: string): bool
     case 'employees':
     case 'الموظفون':
       return hasPermission(user, PERMISSIONS.USERS_VIEW);
+
+    case 'appointments':
+    case 'المواعيد':
+    case 'المواعيد والمقابلات':
+    case 'إدارة المواعيد':
+      return hasPermission(user, PERMISSIONS.APPOINTMENTS_VIEW);
+
+    case 'registry':
+    case 'الصادر والوارد':
+    case 'السجل الإداري':
+    case 'سجل الصادر':
+    case 'سجل الوارد':
+      return hasPermission(user, PERMISSIONS.REGISTRY_VIEW);
 
     case 'roles':
     case 'الأدوار':

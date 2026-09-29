@@ -160,7 +160,7 @@ export const AppRoutes: React.FC = () => {
         <Route
           path="/appointments"
           element={
-            <ProtectedRoute permission={PERMISSIONS.REQUESTS_VIEW}>
+            <ProtectedRoute permission={PERMISSIONS.APPOINTMENTS_VIEW}>
               <AppointmentsListPage />
             </ProtectedRoute>
           }
@@ -170,7 +170,7 @@ export const AppRoutes: React.FC = () => {
         <Route
           path="/registry/outgoing"
           element={
-            <ProtectedRoute permission={PERMISSIONS.REQUESTS_VIEW}>
+            <ProtectedRoute permission={PERMISSIONS.REGISTRY_VIEW}>
               <OutgoingLettersPage />
             </ProtectedRoute>
           }
@@ -178,7 +178,7 @@ export const AppRoutes: React.FC = () => {
         <Route
           path="/registry/incoming"
           element={
-            <ProtectedRoute permission={PERMISSIONS.REQUESTS_VIEW}>
+            <ProtectedRoute permission={PERMISSIONS.REGISTRY_VIEW}>
               <IncomingLettersPage />
             </ProtectedRoute>
           }

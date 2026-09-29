@@ -8,11 +8,26 @@ export const MODULES_LIST = [
   'المراجعون',
   'الوزارات',
   'الموظفون',
+  'إدارة المواعيد',
+  'الصادر والوارد',
   'التقارير',
   'الإشعارات',
   'الإعدادات',
   'سجل العمليات'
 ];
+
+export const getModulePrefix = (mod: string): string => {
+  if (mod === 'المراجعون') return 'customers';
+  if (mod === 'الوزارات') return 'ministries';
+  if (mod === 'الموظفون') return 'users';
+  if (mod === 'إدارة المواعيد' || mod === 'المواعيد والمقابلات' || mod === 'المواعيد') return 'appointments';
+  if (mod === 'الصادر والوارد' || mod === 'السجل الإداري' || mod === 'الصادر والوارد (السجل الإداري)') return 'registry';
+  if (mod === 'التقارير') return 'reports';
+  if (mod === 'الإشعارات') return 'notifications';
+  if (mod === 'الإعدادات') return 'settings';
+  if (mod === 'سجل العمليات') return 'audit_logs';
+  return 'requests';
+};
 
 export const ALL_SYSTEM_PERMISSIONS = [
   // الطلبات
@@ -45,6 +60,20 @@ export const ALL_SYSTEM_PERMISSIONS = [
   { key: 'users.update', module: 'الموظفون', description: 'تعديل بيانات وصلاحيات الموظف' },
   { key: 'users.delete', module: 'الموظفون', description: 'تعطيل أو حذف حساب موظف' },
   { key: 'users.manage', module: 'الموظفون', description: 'إدارة كاملة لحسابات الموظفين' },
+
+  // إدارة المواعيد
+  { key: 'appointments.view', module: 'إدارة المواعيد', description: 'عرض جدول وقائمة المواعيد والمقابلات' },
+  { key: 'appointments.create', module: 'إدارة المواعيد', description: 'حجز موعد أو مقابلة جديدة' },
+  { key: 'appointments.update', module: 'إدارة المواعيد', description: 'تعديل أو قبول/رفض المواعيد' },
+  { key: 'appointments.delete', module: 'إدارة المواعيد', description: 'إلغاء أو حذف المواعيد' },
+  { key: 'appointments.manage', module: 'إدارة المواعيد', description: 'إدارة شاملة للمواعيد وأوقات المقابلات' },
+
+  // الصادر والوارد
+  { key: 'registry.view', module: 'الصادر والوارد', description: 'عرض سجل الكتب الصادرة والواردة' },
+  { key: 'registry.create', module: 'الصادر والوارد', description: 'تسجيل كتاب صادر أو وارد جديد' },
+  { key: 'registry.update', module: 'الصادر والوارد', description: 'تعديل بيانات وأرشفة الكتب' },
+  { key: 'registry.delete', module: 'الصادر والوارد', description: 'حذف الكتب من السجل' },
+  { key: 'registry.manage', module: 'الصادر والوارد', description: 'إدارة كاملة للسجل الإداري' },
 
   // التقارير
   { key: 'reports.view', module: 'التقارير', description: 'عرض لوحة مؤشرات الأداء والتقارير' },
@@ -114,14 +143,7 @@ export const formatRoleObject = (role: any) => {
   const permKeys = role.rolePermissions?.map((rp: any) => rp.permission?.key) || [];
 
   const matrix = MODULES_LIST.map((mod) => {
-    let prefix = 'requests';
-    if (mod === 'المراجعون') prefix = 'customers';
-    if (mod === 'الوزارات') prefix = 'ministries';
-    if (mod === 'الموظفون') prefix = 'users';
-    if (mod === 'التقارير') prefix = 'reports';
-    if (mod === 'الإشعارات') prefix = 'notifications';
-    if (mod === 'الإعدادات') prefix = 'settings';
-    if (mod === 'سجل العمليات') prefix = 'audit_logs';
+    const prefix = getModulePrefix(mod);
 
     return {
       module: mod,
@@ -209,14 +231,7 @@ export const updateRole = async (req: Request, res: Response, next: NextFunction
 
     if (Array.isArray(permissions)) {
       permissions.forEach((p: any) => {
-        let prefix = 'requests';
-        if (p.module === 'المراجعون') prefix = 'customers';
-        if (p.module === 'الوزارات') prefix = 'ministries';
-        if (p.module === 'الموظفون') prefix = 'users';
-        if (p.module === 'التقارير') prefix = 'reports';
-        if (p.module === 'الإشعارات') prefix = 'notifications';
-        if (p.module === 'الإعدادات') prefix = 'settings';
-        if (p.module === 'سجل العمليات') prefix = 'audit_logs';
+        const prefix = getModulePrefix(p.module);
 
         if (p.view) requestedKeys.push(`${prefix}.view`);
         if (p.create) requestedKeys.push(`${prefix}.create`);
@@ -344,14 +359,7 @@ export const createRole = async (req: Request, res: Response, next: NextFunction
 
     if (Array.isArray(permissions)) {
       permissions.forEach((p: any) => {
-        let prefix = 'requests';
-        if (p.module === 'المراجعون') prefix = 'customers';
-        if (p.module === 'الوزارات') prefix = 'ministries';
-        if (p.module === 'الموظفون') prefix = 'users';
-        if (p.module === 'التقارير') prefix = 'reports';
-        if (p.module === 'الإشعارات') prefix = 'notifications';
-        if (p.module === 'الإعدادات') prefix = 'settings';
-        if (p.module === 'سجل العمليات') prefix = 'audit_logs';
+        const prefix = getModulePrefix(p.module);
 
         if (p.view) requestedKeys.push(`${prefix}.view`);
         if (p.create) requestedKeys.push(`${prefix}.create`);

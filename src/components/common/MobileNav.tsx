@@ -15,7 +15,10 @@ import {
   X,
   ExternalLink,
   Flame,
-  User
+  User,
+  Calendar,
+  Send,
+  Inbox
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -48,6 +51,9 @@ export const MobileNav: React.FC = () => {
   const mainTabs = allMainTabs.filter((tab) => canAccessModule(tab.module));
 
   const allMoreLinks = [
+    { name: 'المواعيد والمقابلات', path: '/appointments', icon: <Calendar className="w-5 h-5" />, module: 'إدارة المواعيد' },
+    { name: 'سجل الصادر', path: '/registry/outgoing', icon: <Send className="w-5 h-5" />, module: 'الصادر والوارد' },
+    { name: 'سجل الوارد', path: '/registry/incoming', icon: <Inbox className="w-5 h-5" />, module: 'الصادر والوارد' },
     { name: 'الوزارات والجهات', path: '/ministries', icon: <Building2 className="w-5 h-5" />, module: 'الوزارات' },
     { name: 'الموظفون', path: '/employees', icon: <UserCheck className="w-5 h-5" />, module: 'الموظفون' },
     { name: 'التقارير والإحصائيات', path: '/reports', icon: <BarChart3 className="w-5 h-5" />, module: 'التقارير' },
