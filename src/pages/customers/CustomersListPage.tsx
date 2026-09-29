@@ -64,24 +64,25 @@ export const CustomersListPage: React.FC = () => {
         </div>
 
         {canCreateCustomer && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              size="md"
-              onClick={() => setIsBulkImportOpen(true)}
-              icon={<FileSpreadsheet className="w-4 h-4 text-emerald-600" />}
-              className="font-bold border-emerald-300 text-emerald-800 hover:bg-emerald-50"
-            >
-              استيراد من Excel / CSV
-            </Button>
-
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto">
             <Button
               variant="primary"
               size="md"
               onClick={() => navigate('/customers/new')}
               icon={<Plus className="w-4 h-4" />}
+              className="w-full sm:w-auto justify-center text-xs sm:text-sm font-bold shadow-sm"
             >
               + إضافة مراجع جديد
+            </Button>
+
+            <Button
+              variant="outline"
+              size="md"
+              onClick={() => setIsBulkImportOpen(true)}
+              icon={<FileSpreadsheet className="w-4 h-4 text-emerald-600" />}
+              className="w-full sm:w-auto justify-center text-xs sm:text-sm font-bold border-emerald-300 text-emerald-800 hover:bg-emerald-50 bg-emerald-50/30"
+            >
+              استيراد من Excel / CSV
             </Button>
           </div>
         )}

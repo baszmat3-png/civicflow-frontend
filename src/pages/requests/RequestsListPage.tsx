@@ -377,47 +377,48 @@ export const RequestsListPage: React.FC = () => {
         </div>
 
         {/* Actions */}
-        <div className="flex flex-wrap items-center gap-2">
-          {canExportReports && (
-            <>
-              <Button
-                variant="outline"
-                size="md"
-                onClick={() => handleOpenExport('pdf')}
-                className="text-red-600 border-red-200 hover:bg-red-50"
-                icon={<FileText className="w-4 h-4" />}
-              >
-                تصدير PDF
-              </Button>
-              <Button
-                variant="outline"
-                size="md"
-                onClick={() => handleOpenExport('excel')}
-                className="text-emerald-700 border-emerald-300 hover:bg-emerald-50"
-                icon={<FileSpreadsheet className="w-4 h-4" />}
-              >
-                تصدير Excel مخصص
-              </Button>
-            </>
-          )}
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto">
           {canCreateRequest && (
             <>
-              <Button
-                variant="outline"
-                size="md"
-                onClick={() => setIsBulkImportOpen(true)}
-                className="text-emerald-700 border-emerald-300 hover:bg-emerald-50"
-                icon={<FileSpreadsheet className="w-4 h-4 text-emerald-600" />}
-              >
-                استيراد من Excel
-              </Button>
               <Button
                 variant="primary"
                 size="md"
                 onClick={() => navigate('/requests/new')}
                 icon={<Plus className="w-4 h-4" />}
+                className="w-full sm:w-auto justify-center text-xs sm:text-sm font-bold shadow-sm"
               >
                 + إضافة طلب
+              </Button>
+              <Button
+                variant="outline"
+                size="md"
+                onClick={() => setIsBulkImportOpen(true)}
+                className="w-full sm:w-auto justify-center text-xs sm:text-sm font-bold text-emerald-700 border-emerald-300 hover:bg-emerald-50 bg-emerald-50/30"
+                icon={<FileSpreadsheet className="w-4 h-4 text-emerald-600" />}
+              >
+                استيراد من Excel
+              </Button>
+            </>
+          )}
+          {canExportReports && (
+            <>
+              <Button
+                variant="outline"
+                size="md"
+                onClick={() => handleOpenExport('excel')}
+                className="w-full sm:w-auto justify-center text-xs sm:text-sm font-bold text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                icon={<FileSpreadsheet className="w-4 h-4" />}
+              >
+                تصدير Excel
+              </Button>
+              <Button
+                variant="outline"
+                size="md"
+                onClick={() => handleOpenExport('pdf')}
+                className="w-full sm:w-auto justify-center text-xs sm:text-sm font-bold text-red-600 border-red-200 hover:bg-red-50"
+                icon={<FileText className="w-4 h-4" />}
+              >
+                تصدير PDF
               </Button>
             </>
           )}
