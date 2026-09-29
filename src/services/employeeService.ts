@@ -24,5 +24,9 @@ export const employeeService = {
 
   deleteEmployee: async (id: string): Promise<void> => {
     await apiClient.delete(`/users/${id}`);
+  },
+
+  saveDistributionSettings: async (employees: { id: string; assignedMinistries: string[]; isAutoAssignEnabled: boolean }[]): Promise<any> => {
+    return apiClient.put('/users/distribution', { employees });
   }
 };

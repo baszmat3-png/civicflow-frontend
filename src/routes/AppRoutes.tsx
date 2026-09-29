@@ -67,6 +67,7 @@ import { BackupSettingsPage } from '../pages/settings/BackupSettingsPage';
 import { AppointmentSettingsPage } from '../pages/settings/AppointmentSettingsPage';
 import { RatingModerationPage } from '../pages/settings/RatingModerationPage';
 import { RegistryEntitiesSettingsPage } from '../pages/settings/RegistryEntitiesSettingsPage';
+import { DistributionSettingsPage } from '../pages/settings/DistributionSettingsPage';
 
 // Appointments & Registry Pages
 import { AppointmentsListPage } from '../pages/appointments/AppointmentsListPage';
@@ -449,6 +450,14 @@ export const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute permission={PERMISSIONS.SETTINGS_MANAGE}>
               <RegistryEntitiesSettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings/distribution"
+          element={
+            <ProtectedRoute permission={PERMISSIONS.SETTINGS_MANAGE}>
+              <DistributionSettingsPage />
             </ProtectedRoute>
           }
         />

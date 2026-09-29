@@ -157,16 +157,108 @@ export const NotificationSettingsPage: React.FC = () => {
             />
           </div>
 
+          {/* Deputy Office Overdue WhatsApp Escalation Section */}
+          <div className="p-4 sm:p-5 rounded-2xl border-2 border-amber-300 bg-amber-50/40 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-amber-100 text-amber-800 mt-0.5">
+                  <Flame className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">
+                    تحويل المعاملات المتأخرة إلى واتساب مكتب النائب تلقائياً (إشعار الطوارئ)
+                  </h3>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    إرسال إشعار فوري عبر WhatsApp إلى هاتف مكتب النائب أو المتابعة الخاصة بمجرد تأخر أي معاملة عن مدة الإنجاز المحددة.
+                  </p>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={(prefs as any).enableOverdueWhatsAppToDeputy !== false}
+                onChange={() => setPrefs((prev: any) => ({ ...prev, enableOverdueWhatsAppToDeputy: !(prev.enableOverdueWhatsAppToDeputy !== false) }))}
+                className="w-5 h-5 text-amber-600 rounded mt-1 cursor-pointer"
+              />
+            </div>
+
+            <div className="space-y-3 pt-2 border-t border-amber-200/60">
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  رقم هاتف مكتب النائب / هاتف المتابعة الخاصة <span className="text-rose-600">*</span>
+                </label>
+                <input
+                  type="tel"
+                  value={(prefs as any).deputyOfficePhone || ''}
+                  onChange={(e) => setPrefs((prev: any) => ({ ...prev, deputyOfficePhone: e.target.value }))}
+                  placeholder="مثال: 07700000001 أو +9647700000001"
+                  className="w-full text-xs p-3 rounded-xl border border-amber-300 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  الرقم الذي ستصل إليه رسائل التنبيه والإنذار بالمعاملات المتأخرة فوراً.
+                </p>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-800">
+                    قالب رسالة التنبيه بالمعاملة المتأخرة (WhatsApp Template)
+                  </label>
+                  <div className="text-[10px] text-slate-500 font-mono">
+                    متغيرات: {'{{request_number}}'}, {'{{customer_name}}'}, {'{{ministry}}'}, {'{{overdue_days}}'}
+                  </div>
+                </div>
+                <textarea
+                  rows={4}
+                  value={
+                    (prefs as any).overdueAlertTemplate ||
+                    `⚠️ *تنبيه عاجل لمكتب النائب - معاملة متأخرة*\n\n📋 رقم المعاملة: {{request_number}}\n👤 صاحب المعاملة: {{customer_name}} ({{customer_phone}})\n🏛️ الجهة/الوزارة: {{ministry}}\n⏳ مدة التأخير: {{overdue_days}} يوم\n📝 موضوع المعاملة: {{title}}\n👨‍💼 الموظف المسؤول: {{employee_name}}\n\nيرجى التوجيه والمتابعة مع الجهة المعنية.`
+                  }
+                  onChange={(e) => setPrefs((prev: any) => ({ ...prev, overdueAlertTemplate: e.target.value }))}
+                  className="w-full text-xs p-3 rounded-xl border border-amber-300 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono leading-relaxed"
+                />
+              </div>
+
+              <div className="flex items-center justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    const phone = (prefs as any).deputyOfficePhone?.trim();
+                    if (!phone) {
+                      error('يرجى كتابة رقم هاتف مكتب النائب أولاً');
+                      return;
+                    }
+                    try {
+                      const { whatsappService } = await import('../../services/whatsappService');
+                      await whatsappService.sendWhatsApp(
+                        phone,
+                        `🔔 تجربة تنبيه مكتب النائب:\nهذا اختبار لقناة إرسال تنبيهات المعاملات المتأخرة عبر واتساب من منظومة CivicFlow بنجاح.`
+                      );
+                      success('تم إرسال رسالة التنبيه التجريبية لهاتف مكتب النائب بنجاح');
+                    } catch (err: any) {
+                      error(err.message || 'تعذر إرسال التنبيه التجريبي');
+                    }
+                  }}
+                  className="text-amber-900 border-amber-400 bg-white hover:bg-amber-100 text-xs font-bold"
+                  icon={<MessageSquare className="w-3.5 h-3.5 text-amber-700" />}
+                >
+                  تجربة إرسال تنبيه لهاتف مكتب النائب
+                </Button>
+              </div>
+            </div>
+          </div>
+
           {/* Test WhatsApp Section */}
           <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
             <div className="flex items-center gap-2">
               <MessageSquare className="w-4 h-4 text-emerald-600" />
-              <h4 className="text-xs font-bold text-slate-800">اختبار اتصال وإرسال رسالة واتساب (Test WhatsApp)</h4>
+              <h4 className="text-xs font-bold text-slate-800">اختبار اتصال وإرسال رسالة واتساب عامة</h4>
             </div>
             <div className="flex flex-col sm:flex-row items-center gap-2">
               <input
                 type="text"
-                placeholder="أدخل رقم هاتف للتجربة (مثال: 07821189947)"
+                placeholder="أدخل أي رقم هاتف للتجربة (مثال: 07821189947)"
                 id="test-phone-input"
                 className="w-full sm:flex-1 px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
               />

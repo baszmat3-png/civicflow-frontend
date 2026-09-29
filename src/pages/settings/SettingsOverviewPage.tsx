@@ -19,7 +19,8 @@ import {
   MapPin,
   Layers,
   Database,
-  Building2
+  Building2,
+  UserCheck
 } from 'lucide-react';
 
 export const SettingsOverviewPage: React.FC = () => {
@@ -99,6 +100,12 @@ export const SettingsOverviewPage: React.FC = () => {
       desc: 'تعديل نصوص الرسائل والمتغيرات التلقائية (الاسم، رقم الطلب، الرابط)',
       icon: <FileCode2 className="w-6 h-6 text-cyan-600" />,
       path: '/settings/whatsapp/templates'
+    },
+    {
+      title: 'إدارة التوزيع والإسناد التلقائي',
+      desc: 'تحديد الوزارات لكل موظف، تفعيل الإسناد التلقائي، وتوزيع أعباء العمل',
+      icon: <UserCheck className="w-6 h-6 text-indigo-600" />,
+      path: '/settings/distribution'
     },
     {
       title: 'المستخدمون وفريق العمل',

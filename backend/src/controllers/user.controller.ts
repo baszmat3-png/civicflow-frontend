@@ -23,7 +23,9 @@ const updateUserSchema = z.object({
   roleId: z.string().optional(),
   department: z.string().optional().nullable(),
   status: z.enum(['ACTIVE', 'INACTIVE', 'نشط', 'غير نشط']).optional(),
-  password: z.string().min(6).optional()
+  password: z.string().min(6).optional(),
+  assignedMinistries: z.array(z.string()).optional(),
+  isAutoAssignEnabled: z.boolean().optional()
 });
 
 export const getUsers = async (req: Request, res: Response, next: NextFunction) => {
@@ -32,7 +34,12 @@ export const getUsers = async (req: Request, res: Response, next: NextFunction) 
       orderBy: { createdAt: 'asc' },
       include: {
         role: true,
-        assignedRequests: { select: { id: true } }
+        assignedRequests: {
+          where: {
+            status: { notIn: ['تم التسليم', 'مرفوض', 'ملغي', 'مكتمل'] }
+          },
+          select: { id: true }
+        }
       }
     });
 
@@ -45,6 +52,8 @@ export const getUsers = async (req: Request, res: Response, next: NextFunction) 
       role: u.role.name,
       department: u.department || 'إدارة المتابعة',
       assignedRequestsCount: u.assignedRequests.length,
+      assignedMinistries: u.assignedMinistries || [],
+      isAutoAssignEnabled: u.isAutoAssignEnabled ?? true,
       status: u.status === UserStatus.ACTIVE ? 'نشط' : 'غير نشط',
       lastLogin: u.lastLogin ? u.lastLogin.toISOString().replace('T', ' ').substring(0, 16) : 'لم يسجل دخول بعد',
       avatarUrl: u.avatarUrl || undefined
@@ -241,12 +250,19 @@ export const updateUser = async (req: Request, res: Response, next: NextFunction
         ...(data.phone !== undefined && { phone: data.phone || null }),
         ...(data.roleId && { roleId: data.roleId }),
         ...(data.department !== undefined && { department: data.department || null }),
+        ...(data.assignedMinistries !== undefined && { assignedMinistries: data.assignedMinistries }),
+        ...(data.isAutoAssignEnabled !== undefined && { isAutoAssignEnabled: data.isAutoAssignEnabled }),
         ...(statusVal && { status: statusVal }),
         ...(passwordHash && { passwordHash })
       },
       include: {
         role: true,
-        assignedRequests: { select: { id: true } }
+        assignedRequests: {
+          where: {
+            status: { notIn: ['تم التسليم', 'مرفوض', 'ملغي', 'مكتمل'] }
+          },
+          select: { id: true }
+        }
       }
     });
 
@@ -259,7 +275,7 @@ export const updateUser = async (req: Request, res: Response, next: NextFunction
           action: 'تعديل إعدادات',
           entity: 'User',
           entityId: updated.id,
-          details: `تحديث بيانات الموظف: ${updated.name}`,
+          details: `تحديث بيانات وتوزيع الموظف: ${updated.name}`,
           ipAddress: req.ip
         }
       });
@@ -274,11 +290,52 @@ export const updateUser = async (req: Request, res: Response, next: NextFunction
       role: updated.role.name,
       department: updated.department || '',
       assignedRequestsCount: updated.assignedRequests.length,
+      assignedMinistries: updated.assignedMinistries || [],
+      isAutoAssignEnabled: updated.isAutoAssignEnabled ?? true,
       status: updated.status === UserStatus.ACTIVE ? 'نشط' : 'غير نشط',
       lastLogin: updated.lastLogin ? updated.lastLogin.toISOString().replace('T', ' ').substring(0, 16) : 'لم يسجل دخول بعد'
     };
 
     return sendSuccess(res, formatted, 'تم تحديث بيانات الموظف بنجاح');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const saveDistributionSettings = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { employees } = req.body;
+
+    if (!Array.isArray(employees)) {
+      throw new AppError('بيانات التوزيع غير صحيحة', 400, 'INVALID_DISTRIBUTION_DATA');
+    }
+
+    for (const emp of employees) {
+      if (!emp.id) continue;
+      await prisma.user.update({
+        where: { id: emp.id },
+        data: {
+          assignedMinistries: Array.isArray(emp.assignedMinistries) ? emp.assignedMinistries : [],
+          isAutoAssignEnabled: typeof emp.isAutoAssignEnabled === 'boolean' ? emp.isAutoAssignEnabled : true
+        }
+      });
+    }
+
+    if (req.user) {
+      await prisma.auditLog.create({
+        data: {
+          userId: req.user.id,
+          userName: req.user.name,
+          userRole: req.user.role,
+          action: 'تعديل إعدادات',
+          entity: 'DistributionSettings',
+          details: 'تحديث قواعد توزيع وتخصيص المعاملات والوزارات على الموظفين',
+          ipAddress: req.ip
+        }
+      });
+    }
+
+    return sendSuccess(res, { success: true }, 'تم حفظ إعدادات توزيع المعاملات بنجاح');
   } catch (error) {
     next(error);
   }

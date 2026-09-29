@@ -185,6 +185,8 @@ export interface Employee {
   lastLogin: string;
   avatarUrl?: string;
   permissions?: string[];
+  assignedMinistries?: string[];
+  isAutoAssignEnabled?: boolean;
 }
 
 export interface RolePermissionMatrix {
