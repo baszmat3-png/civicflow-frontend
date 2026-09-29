@@ -2,8 +2,74 @@ import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../config/database.js';
 import { sendSuccess } from '../utils/apiResponse.js';
 
+const DEFAULT_WA_TEMPLATES = [
+  {
+    key: 'receive_request',
+    title: 'استلام الطلب',
+    content: 'عزيزي المراجع {{customer_name}}، تم استلام طلبك رقم {{request_number}} بنجاح لدى {{ministry}}. الموعد المتوقع للإنجاز: {{expected_date}}. يمكنك متابعة الطلب عبر الرابط: {{tracking_link}}',
+    variables: ['customer_name', 'request_number', 'ministry', 'expected_date', 'tracking_link']
+  },
+  {
+    key: 'status_changed',
+    title: 'تغيير الحالة',
+    content: 'مرحباً {{customer_name}}، نود إحاطتك بأن حالة طلبك رقم {{request_number}} أصبحت الآن: ({{status}}) لدى {{ministry}}. الرابط: {{tracking_link}}',
+    variables: ['customer_name', 'request_number', 'status', 'ministry', 'tracking_link']
+  },
+  {
+    key: 'docs_required',
+    title: 'طلب مستندات',
+    content: 'عزيزي المراجع {{customer_name}}، يلزم استكمال بعض المستندات للطلب {{request_number}} لدى {{ministry}}. يرجى مراجعة المنصة أو زيارة الفرع في أقرب وقت. الرابط: {{tracking_link}}',
+    variables: ['customer_name', 'request_number', 'ministry', 'tracking_link']
+  },
+  {
+    key: 'approved',
+    title: 'الموافقة',
+    content: 'بشرى سارة {{customer_name}}، تمت الموافقة على طلبك رقم {{request_number}} من قبل {{ministry}}. جاري إعداد الوثائق النهائية. الرابط: {{tracking_link}}',
+    variables: ['customer_name', 'request_number', 'ministry', 'tracking_link']
+  },
+  {
+    key: 'ready_for_pickup',
+    title: 'الإجابة جاهزة',
+    content: 'عزيزي المراجع {{customer_name}}، الإجابة والوثائق الرسمية للطلب رقم {{request_number}} جاهزة للاستلام. يمكنك مراجعتنا أو تحميلها مباشرة عبر: {{tracking_link}}',
+    variables: ['customer_name', 'request_number', 'tracking_link']
+  },
+  {
+    key: 'appointment_approved',
+    title: 'قبول وتأكيد موعد حجز مقابلة',
+    content: 'الأخ/الأخت {{customer_name}} المحترم، تمت الموافقة على موعدك برقم ({{appointment_number}}) لمقابلة ({{target_person}}). التاريخ: {{appointment_date}}، الوقت: {{appointment_time}}. {{notes}}يرجى الحضور في الموعد المحدد.',
+    variables: ['customer_name', 'appointment_number', 'target_person', 'appointment_date', 'appointment_time', 'notes']
+  },
+  {
+    key: 'appointment_rejected',
+    title: 'الاعتذار عن موعد حجز مقابلة',
+    content: 'الأخ/الأخت {{customer_name}} المحترم، نعتذر عن عدم إمكانية اعتماد موعد المقابلة برقم ({{appointment_number}}) ليوم {{appointment_date}} في الوقت الحالي. {{reason}}يمكنك اختيار موعد آخر عبر المنظومة.',
+    variables: ['customer_name', 'appointment_number', 'appointment_date', 'reason']
+  },
+  {
+    key: 'appointment_reminder',
+    title: 'تذكير بموعد المقابلة (قبل 30 دقيقة)',
+    content: 'تذكير: الأخ/الأخت {{customer_name}}، نود تذكيرك بموعد مقابلتك اليوم {{appointment_date}} في تمام الساعة {{appointment_time}} لمقابلة ({{target_person}}). نتمنى لك يوماً سعيداً.',
+    variables: ['customer_name', 'appointment_number', 'target_person', 'appointment_date', 'appointment_time']
+  }
+];
+
 export const getSystemSettings = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    // Ensure all standard WhatsApp templates exist in DB
+    for (const dt of DEFAULT_WA_TEMPLATES) {
+      const existing = await prisma.whatsAppTemplate.findUnique({ where: { key: dt.key } });
+      if (!existing) {
+        await prisma.whatsAppTemplate.create({
+          data: {
+            key: dt.key,
+            title: dt.title,
+            content: dt.content,
+            variables: dt.variables
+          }
+        });
+      }
+    }
+
     const [generalSet, notifSet, waSet, statuses, slaList, waTemplates] = await Promise.all([
       prisma.systemSetting.findUnique({ where: { key: 'general' } }),
       prisma.systemSetting.findUnique({ where: { key: 'notificationPreferences' } }),

@@ -222,6 +222,147 @@ export const whatsappNotificationService = {
   },
 
   /**
+   * إرسال رسالة قبول واعتماد موعد المقابلة (تستخدم قالب appointment_approved)
+   */
+  sendAppointmentApprovedWhatsApp: async (params: {
+    to: string;
+    customerName: string;
+    appointmentNumber: string;
+    targetPerson: string;
+    appointmentDate: string;
+    appointmentTime: string;
+    notes?: string | null;
+    appointmentId?: string;
+  }) => {
+    if (!params.to) return;
+    try {
+      const fallbackMessage = [
+        `الأخ/الأخت ${params.customerName} المحترم،`,
+        `تمت الموافقة على طلب موعد المقابلة الخاص بك لمقابلة (${params.targetPerson}).`,
+        ``,
+        `📌 رقم الموعد: ${params.appointmentNumber}`,
+        `📅 التاريخ: ${params.appointmentDate}`,
+        `⏰ الوقت: ${params.appointmentTime}`,
+        params.notes ? `📝 توجيهات وملاحظات: ${params.notes}` : '',
+        ``,
+        `نرجو الحضور قبل الموعد بـ 10 دقائق في مقر المكتب. أهلاً وسهلاً بك.`
+      ]
+        .filter(Boolean)
+        .join('\n');
+
+      const message = await renderTemplate(
+        'appointment_approved',
+        {
+          customer_name: params.customerName,
+          appointment_number: params.appointmentNumber,
+          target_person: params.targetPerson,
+          appointment_date: params.appointmentDate,
+          appointment_time: params.appointmentTime,
+          notes: params.notes ? `\nملاحظات: ${params.notes}\n` : ''
+        },
+        fallbackMessage
+      );
+
+      return await whatsAppProvider.sendMessage({
+        to: params.to,
+        message,
+        templateKey: 'appointment_approved',
+        requestId: params.appointmentId
+      });
+    } catch (err) {
+      console.warn('⚠️ WhatsApp appointment approved notification skipped:', err);
+    }
+  },
+
+  /**
+   * إرسال رسالة الاعتذار عن موعد المقابلة (تستخدم قالب appointment_rejected)
+   */
+  sendAppointmentRejectedWhatsApp: async (params: {
+    to: string;
+    customerName: string;
+    appointmentNumber: string;
+    appointmentDate: string;
+    reason?: string | null;
+    appointmentId?: string;
+  }) => {
+    if (!params.to) return;
+    try {
+      const fallbackMessage = [
+        `الأخ/الأخت ${params.customerName} المحترم،`,
+        `نعتذر عن عدم إمكانية اعتماد موعد المقابلة برقم (${params.appointmentNumber}) ليوم ${params.appointmentDate} في الوقت الحالي.`,
+        params.reason ? `سبب الاعتذار: ${params.reason}` : '',
+        `يمكنك حجز موعد آخر متاح عبر المنظومة أو مراجعة سكرتارية المكتب.`
+      ]
+        .filter(Boolean)
+        .join('\n');
+
+      const message = await renderTemplate(
+        'appointment_rejected',
+        {
+          customer_name: params.customerName,
+          appointment_number: params.appointmentNumber,
+          appointment_date: params.appointmentDate,
+          reason: params.reason ? `\nسبب الاعتذار: ${params.reason}\n` : ''
+        },
+        fallbackMessage
+      );
+
+      return await whatsAppProvider.sendMessage({
+        to: params.to,
+        message,
+        templateKey: 'appointment_rejected',
+        requestId: params.appointmentId
+      });
+    } catch (err) {
+      console.warn('⚠️ WhatsApp appointment rejected notification skipped:', err);
+    }
+  },
+
+  /**
+   * إرسال تذكير بالموعد قبل 30 دقيقة
+   */
+  sendAppointmentReminderWhatsApp: async (params: {
+    to: string;
+    customerName: string;
+    appointmentNumber: string;
+    targetPerson: string;
+    appointmentDate: string;
+    appointmentTime: string;
+    appointmentId?: string;
+  }) => {
+    if (!params.to) return;
+    try {
+      const fallbackMessage = [
+        `تذكير: الأخ/الأخت ${params.customerName} المحترم،`,
+        `نود تذكيركم بموعد مقابلتكم اليوم ${params.appointmentDate} في تمام الساعة ${params.appointmentTime} لمقابلة (${params.targetPerson}).`,
+        `📌 رقم الموعد: ${params.appointmentNumber}`,
+        `نتمنى لكم يوماً سعيداً.`
+      ].join('\n');
+
+      const message = await renderTemplate(
+        'appointment_reminder',
+        {
+          customer_name: params.customerName,
+          appointment_number: params.appointmentNumber,
+          target_person: params.targetPerson,
+          appointment_date: params.appointmentDate,
+          appointment_time: params.appointmentTime
+        },
+        fallbackMessage
+      );
+
+      return await whatsAppProvider.sendMessage({
+        to: params.to,
+        message,
+        templateKey: 'appointment_reminder',
+        requestId: params.appointmentId
+      });
+    } catch (err) {
+      console.warn('⚠️ WhatsApp appointment reminder skipped:', err);
+    }
+  },
+
+  /**
    * إرسال رسالة واتساب مخصصة مباشرة
    */
   sendDirectWhatsApp: async (to: string, message: string, requestId?: string) => {
@@ -238,4 +379,5 @@ export const whatsappNotificationService = {
     }
   }
 };
+
 

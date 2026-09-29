@@ -74,15 +74,15 @@ export const WhatsAppTemplatesPage: React.FC = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate('/settings/whatsapp')}
+            onClick={() => navigate('/settings')}
             icon={<ArrowRight className="w-4 h-4" />}
           >
-            العودة لـ WhatsApp
+            العودة للإعدادات
           </Button>
           <div>
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">قوالب رسائل WhatsApp</h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              تخصيص نصوص الرسائل التلقائية والمتغيرات الديناميكية
+              تخصيص نصوص الرسائل التلقائية والمتغيرات الديناميكية للمعاملات والمواعيد
             </p>
           </div>
         </div>
@@ -110,6 +110,18 @@ export const WhatsAppTemplatesPage: React.FC = () => {
               {'{{request_number}}'} : رقم المعاملة
             </span>
             <span className="font-mono bg-slate-800 text-teal-400 px-2.5 py-1 rounded-lg border border-slate-700">
+              {'{{appointment_number}}'} : رقم الموعد
+            </span>
+            <span className="font-mono bg-slate-800 text-teal-400 px-2.5 py-1 rounded-lg border border-slate-700">
+              {'{{appointment_date}}'} : تاريخ الموعد
+            </span>
+            <span className="font-mono bg-slate-800 text-teal-400 px-2.5 py-1 rounded-lg border border-slate-700">
+              {'{{appointment_time}}'} : وقت الموعد
+            </span>
+            <span className="font-mono bg-slate-800 text-teal-400 px-2.5 py-1 rounded-lg border border-slate-700">
+              {'{{target_person}}'} : صفة المسؤول (النائب/مدير المكتب)
+            </span>
+            <span className="font-mono bg-slate-800 text-teal-400 px-2.5 py-1 rounded-lg border border-slate-700">
               {'{{status}}'} : الحالة الجديدة
             </span>
             <span className="font-mono bg-slate-800 text-teal-400 px-2.5 py-1 rounded-lg border border-slate-700">
@@ -120,6 +132,12 @@ export const WhatsAppTemplatesPage: React.FC = () => {
             </span>
             <span className="font-mono bg-slate-800 text-teal-400 px-2.5 py-1 rounded-lg border border-slate-700">
               {'{{tracking_link}}'} : رابط الاستعلام العام
+            </span>
+            <span className="font-mono bg-slate-800 text-teal-400 px-2.5 py-1 rounded-lg border border-slate-700">
+              {'{{notes}}'} : ملاحظات وتوجيهات
+            </span>
+            <span className="font-mono bg-slate-800 text-teal-400 px-2.5 py-1 rounded-lg border border-slate-700">
+              {'{{reason}}'} : سبب الرفض أو الاعتذار
             </span>
           </div>
         </CardContent>
@@ -176,6 +194,34 @@ export const WhatsAppTemplatesPage: React.FC = () => {
                   </button>
                   <button
                     type="button"
+                    onClick={() => handleInsertVariable('appointment_number')}
+                    className="text-blue-600 hover:underline font-mono"
+                  >
+                    +رقم الموعد
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleInsertVariable('appointment_date')}
+                    className="text-blue-600 hover:underline font-mono"
+                  >
+                    +تاريخ الموعد
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleInsertVariable('appointment_time')}
+                    className="text-blue-600 hover:underline font-mono"
+                  >
+                    +وقت الموعد
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleInsertVariable('target_person')}
+                    className="text-blue-600 hover:underline font-mono"
+                  >
+                    +المسؤول
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => handleInsertVariable('request_number')}
                     className="text-blue-600 hover:underline font-mono"
                   >
@@ -187,6 +233,20 @@ export const WhatsAppTemplatesPage: React.FC = () => {
                     className="text-blue-600 hover:underline font-mono"
                   >
                     +رابط التتبع
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleInsertVariable('notes')}
+                    className="text-blue-600 hover:underline font-mono"
+                  >
+                    +ملاحظات
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleInsertVariable('reason')}
+                    className="text-blue-600 hover:underline font-mono"
+                  >
+                    +السبب
                   </button>
                 </div>
               </div>

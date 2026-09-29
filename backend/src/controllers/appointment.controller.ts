@@ -236,18 +236,32 @@ export const updateAppointmentStatus = async (req: Request, res: Response, next:
     const targetPersonTitle = updated.targetPerson === 'DEPUTY' ? 'سعادة النائب' : 'مدير المكتب';
     const dateStr = updated.appointmentDate.toISOString().split('T')[0];
 
-    // WhatsApp Notification on Status Change
+    // WhatsApp Notification on Status Change (Using Dynamic Templates)
     if (status === 'CONFIRMED') {
       try {
-        const msg = `الأخ/الأخت ${updated.customerName} المحترم،\nتمت الموافقة على موعدك لمقابلة (${targetPersonTitle}).\n\n📌 رقم الموعد: ${updated.appointmentNumber}\n📅 التاريخ: ${dateStr}\n⏰ التوقيت: ${updated.timeSlot}\n${adminNotes ? `📝 ملاحظات: ${adminNotes}\n` : ''}\nنرجو الحضور قبل الموعد بـ 10 دقائق في مقر المكتب. أهلاً وسهلاً بك.`;
-        await whatsappNotificationService.sendDirectWhatsApp(updated.customerPhone, msg, updated.id);
+        await whatsappNotificationService.sendAppointmentApprovedWhatsApp({
+          to: updated.customerPhone,
+          customerName: updated.customerName,
+          appointmentNumber: updated.appointmentNumber,
+          targetPerson: targetPersonTitle,
+          appointmentDate: dateStr,
+          appointmentTime: updated.timeSlot,
+          notes: adminNotes || null,
+          appointmentId: updated.id
+        });
       } catch (waErr) {
         console.warn('⚠️ Could not send WhatsApp for confirmed appointment:', waErr);
       }
     } else if (status === 'REJECTED') {
       try {
-        const msg = `الأخ/الأخت ${updated.customerName} المحترم،\nنعتذر عن عدم إمكانية اعتماد موعد المقابلة برقم (${updated.appointmentNumber}) في الوقت الحالي.\n${adminNotes ? `سبب الاعتذار: ${adminNotes}\n` : ''}يمكنك حجز موعد آخر أو مراجعة سكرتارية المكتب.`;
-        await whatsappNotificationService.sendDirectWhatsApp(updated.customerPhone, msg, updated.id);
+        await whatsappNotificationService.sendAppointmentRejectedWhatsApp({
+          to: updated.customerPhone,
+          customerName: updated.customerName,
+          appointmentNumber: updated.appointmentNumber,
+          appointmentDate: dateStr,
+          reason: adminNotes || null,
+          appointmentId: updated.id
+        });
       } catch (waErr) {
         console.warn('⚠️ Could not send WhatsApp for rejected appointment:', waErr);
       }
