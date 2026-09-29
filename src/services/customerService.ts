@@ -38,5 +38,9 @@ export const customerService = {
 
   deleteCustomer: async (id: string): Promise<void> => {
     await apiClient.delete(`/customers/${id}`);
+  },
+
+  bulkImport: async (rows: any[]): Promise<{ successCount: number; failCount: number; errors: string[] }> => {
+    return apiClient.post('/customers/bulk-import', { rows });
   }
 };

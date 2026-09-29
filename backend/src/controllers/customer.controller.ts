@@ -444,3 +444,68 @@ export const deleteCustomer = async (req: Request, res: Response, next: NextFunc
     next(error);
   }
 };
+
+export const bulkImportCustomers = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { rows } = req.body;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      throw new AppError('قائمة المراجعين للاستيراد فارغة', 400, 'EMPTY_ROWS');
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      try {
+        const name = (row.name || row.customerName || '').trim();
+        const phone = (row.phone || row.customerPhone || '').trim();
+        const address = (row.address || '').trim();
+        const nationalId = (row.nationalId || '').trim() || null;
+
+        if (!name || !phone) {
+          failCount++;
+          errors.push(`صف ${i + 1}: اسم المراجع ورقم الهاتف مطلوبان`);
+          continue;
+        }
+
+        // Check if customer already exists by phone
+        let existing = await prisma.customer.findFirst({
+          where: { phone }
+        });
+
+        if (existing) {
+          await prisma.customer.update({
+            where: { id: existing.id },
+            data: {
+              ...(address && !existing.address ? { address } : {}),
+              ...(nationalId && !existing.nationalId ? { nationalId } : {})
+            }
+          });
+          successCount++;
+        } else {
+          const customerNumber = await generateNextCustomerNumber();
+          await prisma.customer.create({
+            data: {
+              customerNumber,
+              name,
+              phone,
+              address: address || 'العراق',
+              nationalId,
+              status: CustomerStatus.ACTIVE
+            }
+          });
+          successCount++;
+        }
+      } catch (err: any) {
+        failCount++;
+        errors.push(`صف ${i + 1}: ${err.message}`);
+      }
+    }
+
+    return sendSuccess(res, { successCount, failCount, errors }, `تم استيراد ${successCount} مراجع بنجاح`);
+  } catch (error) {
+    next(error);
+  }
+};

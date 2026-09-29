@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import {
@@ -12,11 +13,13 @@ import {
   MessageSquare,
   ShieldAlert,
   User,
-  Phone
+  Phone,
+  ArrowRight
 } from 'lucide-react';
 import { ratingService, CitizenRatingItem } from '../../services/ratingService';
 
 export const RatingModerationPage: React.FC = () => {
+  const navigate = useNavigate();
   const [ratings, setRatings] = useState<CitizenRatingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -75,6 +78,14 @@ export const RatingModerationPage: React.FC = () => {
             مراجعة آراء وتقييمات المواطنين مع إمكانية إخفاء أو حذف التعليقات غير اللائقة وحفظ إحصائيات الرضا.
           </p>
         </div>
+
+        <Button
+          variant="outline"
+          onClick={() => navigate('/settings')}
+          icon={<ArrowRight className="w-4 h-4" />}
+        >
+          العودة للإعدادات
+        </Button>
       </div>
 
       {/* Filter Card */}

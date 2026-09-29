@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import {
@@ -10,7 +11,8 @@ import {
   Building2,
   UserCheck,
   Settings,
-  Plus
+  Plus,
+  ArrowRight
 } from 'lucide-react';
 import { appointmentService, AppointmentScheduleItem } from '../../services/appointmentService';
 
@@ -25,6 +27,7 @@ const DAYS = [
 ];
 
 export const AppointmentSettingsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [targetPerson, setTargetPerson] = useState<'DEPUTY' | 'OFFICE_DIRECTOR'>('DEPUTY');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -109,14 +112,24 @@ export const AppointmentSettingsPage: React.FC = () => {
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          onClick={handleSave}
-          isLoading={saving}
-          icon={<Save className="w-4 h-4" />}
-        >
-          حفظ التعديلات
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => navigate('/settings')}
+            icon={<ArrowRight className="w-4 h-4" />}
+          >
+            العودة للإعدادات
+          </Button>
+
+          <Button
+            variant="primary"
+            onClick={handleSave}
+            isLoading={saving}
+            icon={<Save className="w-4 h-4" />}
+          >
+            حفظ التعديلات
+          </Button>
+        </div>
       </div>
 
       {savedSuccess && (

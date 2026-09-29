@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import {
@@ -12,11 +13,13 @@ import {
   MapPin,
   CheckCircle2,
   AlertCircle,
-  X
+  X,
+  ArrowRight
 } from 'lucide-react';
 import { registryService, RegistryEntityItem } from '../../services/registryService';
 
 export const RegistryEntitiesSettingsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [entities, setEntities] = useState<RegistryEntityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -141,9 +144,19 @@ export const RegistryEntitiesSettingsPage: React.FC = () => {
           </p>
         </div>
 
-        <Button variant="primary" onClick={openCreateModal} icon={<Plus className="w-4 h-4" />}>
-          إضافة جهة جديدة
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => navigate('/settings')}
+            icon={<ArrowRight className="w-4 h-4" />}
+          >
+            العودة للإعدادات
+          </Button>
+
+          <Button variant="primary" onClick={openCreateModal} icon={<Plus className="w-4 h-4" />}>
+            إضافة جهة جديدة
+          </Button>
+        </div>
       </div>
 
       {/* Filter Card */}

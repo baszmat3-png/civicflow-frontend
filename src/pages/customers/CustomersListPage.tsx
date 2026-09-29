@@ -9,6 +9,7 @@ import { Pagination } from '../../components/ui/Pagination';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Customer } from '../../types';
 import { usePermissions } from '../../hooks/usePermissions';
+import { BulkImportCustomersModal } from '../../components/customers/BulkImportCustomersModal';
 import {
   Plus,
   Search,
@@ -19,13 +20,15 @@ import {
   MapPin,
   Building,
   ChevronLeft,
-  Calendar
+  Calendar,
+  FileSpreadsheet
 } from 'lucide-react';
 
 export const CustomersListPage: React.FC = () => {
   const navigate = useNavigate();
   const { customers, requests } = useData();
   const { canCreateCustomer, canUpdateCustomer } = usePermissions();
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
 
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -61,14 +64,26 @@ export const CustomersListPage: React.FC = () => {
         </div>
 
         {canCreateCustomer && (
-          <Button
-            variant="primary"
-            size="md"
-            onClick={() => navigate('/customers/new')}
-            icon={<Plus className="w-4 h-4" />}
-          >
-            + إضافة مراجع جديد
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="md"
+              onClick={() => setIsBulkImportOpen(true)}
+              icon={<FileSpreadsheet className="w-4 h-4 text-emerald-600" />}
+              className="font-bold border-emerald-300 text-emerald-800 hover:bg-emerald-50"
+            >
+              استيراد من Excel / CSV
+            </Button>
+
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => navigate('/customers/new')}
+              icon={<Plus className="w-4 h-4" />}
+            >
+              + إضافة مراجع جديد
+            </Button>
+          </div>
         )}
       </div>
 
@@ -189,6 +204,13 @@ export const CustomersListPage: React.FC = () => {
           onPageChange={setCurrentPage}
         />
       </div>
+
+      {/* Bulk Import Modal */}
+      <BulkImportCustomersModal
+        isOpen={isBulkImportOpen}
+        onClose={() => setIsBulkImportOpen(false)}
+        onSuccess={() => window.location.reload()}
+      />
     </div>
   );
 };
