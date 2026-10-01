@@ -86,8 +86,31 @@ export const OutgoingLettersPage: React.FC = () => {
     }
   };
 
+  const [createModalType, setCreateModalType] = useState<'OUTGOING' | 'INCOMING'>('OUTGOING');
+
+  const handleOpenCreate = (type: 'OUTGOING' | 'INCOMING') => {
+    setCreateModalType(type);
+    setIsCreateOpen(true);
+  };
+
   return (
     <div className="space-y-6" dir="rtl">
+      {/* Registry Type Tabs Switcher */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
+        <a
+          href="/registry/incoming"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+        >
+          <span>📥 سجل الكتب الواردة (الوارد)</span>
+        </a>
+        <a
+          href="/registry/outgoing"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs bg-blue-600 text-white shadow-md shadow-blue-600/20"
+        >
+          <span>📤 سجل الكتب الصادرة (الصادر)</span>
+        </a>
+      </div>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -100,7 +123,7 @@ export const OutgoingLettersPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             onClick={() => setIsExportOpen(true)}
@@ -110,11 +133,20 @@ export const OutgoingLettersPage: React.FC = () => {
           </Button>
 
           <Button
+            variant="outline"
+            onClick={() => handleOpenCreate('INCOMING')}
+            icon={<Plus className="w-4 h-4 text-emerald-600" />}
+            className="text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+          >
+            + تسجيل كتاب وارد
+          </Button>
+
+          <Button
             variant="primary"
-            onClick={() => setIsCreateOpen(true)}
+            onClick={() => handleOpenCreate('OUTGOING')}
             icon={<Plus className="w-4 h-4" />}
           >
-            تسجيل كتاب صادر
+            + تسجيل كتاب صادر
           </Button>
         </div>
       </div>
@@ -257,7 +289,7 @@ export const OutgoingLettersPage: React.FC = () => {
       <CreateLetterModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        type="OUTGOING"
+        type={createModalType}
         onSuccess={fetchLetters}
       />
 

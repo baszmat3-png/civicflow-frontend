@@ -4,6 +4,7 @@ import { useData } from '../../context/DataContext';
 import { useToast } from '../../context/ToastContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { Modal } from '../../components/ui/Modal';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { Pagination } from '../../components/ui/Pagination';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -16,6 +17,7 @@ import {
   Search,
   Eye,
   Edit,
+  Trash2,
   FilePlus,
   Phone,
   MapPin,
@@ -23,15 +25,24 @@ import {
   ChevronLeft,
   Calendar,
   FileSpreadsheet,
-  MessageSquare
+  MessageSquare,
+  AlertTriangle,
+  X
 } from 'lucide-react';
 
 export const CustomersListPage: React.FC = () => {
   const navigate = useNavigate();
-  const { customers, requests } = useData();
-  const { canCreateCustomer, canUpdateCustomer } = usePermissions();
+  const { customers, requests, handleDeleteCustomer, handleBulkDeleteCustomers } = useData();
+  const { success, error: toastError } = useToast();
+  const { canCreateCustomer, canUpdateCustomer, canDeleteCustomer } = usePermissions();
+
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [isBulkWhatsAppOpen, setIsBulkWhatsAppOpen] = useState(false);
+
+  // Deletion States
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -79,64 +90,98 @@ export const CustomersListPage: React.FC = () => {
     );
   };
 
+  // Build recipients for bulk WhatsApp modal
   const selectedRecipients = useMemo(() => {
-    return customers
-      .filter((c) => selectedIds.includes(c.id))
-      .map((c) => {
-        const custReq = requests.find((r) => r.customerId === c.id);
+    return selectedIds
+      .map((id) => {
+        const cust = customers.find((c) => c.id === id);
+        if (!cust) return null;
+        const custReq = requests.find((r) => r.customerId === cust.id);
         return {
-          id: c.id,
-          phoneNumber: c.phone,
-          customerName: c.name,
-          requestNumber: custReq?.requestNumber || '',
-          ministry: custReq?.ministryName || '',
-          ministryName: custReq?.ministryName || '',
-          title: custReq?.title || 'معاملة رسمية',
-          trackingLink: custReq ? `${window.location.origin}/track/${custReq.requestNumber}` : `${window.location.origin}/track`
+          id: cust.id,
+          phoneNumber: cust.phone,
+          customerName: cust.name,
+          requestNumber: custReq?.requestNumber || cust.customerNumber || `CUST-${cust.id.substring(0, 5)}`,
+          ministry: custReq?.ministryName || 'الجهة الحكومية',
+          title: custReq?.title || 'معاملة المراجع',
+          requestId: custReq?.id
         };
-      });
-  }, [customers, requests, selectedIds]);
+      })
+      .filter(Boolean) as any[];
+  }, [selectedIds, customers, requests]);
+
+  // Single Delete Execution
+  const confirmDeleteCustomer = async (force: boolean = false) => {
+    if (!customerToDelete) return;
+    try {
+      setIsDeleting(true);
+      await handleDeleteCustomer(customerToDelete.id, force);
+      success('تم حذف المراجع', `تم حذف المراجع ${customerToDelete.name} بنجاح من النظام.`);
+      setCustomerToDelete(null);
+      setSelectedIds((prev) => prev.filter((id) => id !== customerToDelete.id));
+    } catch (err: any) {
+      toastError('فشل حذف المراجع', err?.response?.data?.message || err?.message || 'حدث خطأ أثناء محاولة الحذف');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Bulk Delete Execution
+  const confirmBulkDelete = async (force: boolean = false) => {
+    if (selectedIds.length === 0) return;
+    try {
+      setIsDeleting(true);
+      const res = await handleBulkDeleteCustomers(selectedIds, force);
+      success(
+        'تم الحذف بنجاح',
+        `تم حذف ${res.deletedCount} مراجع بنجاح${res.blockedCount > 0 ? ` (وتم تعطيل ${res.blockedCount} مراجع لوجود معاملات سابقة)` : ''}`
+      );
+      setSelectedIds([]);
+      setIsBulkDeleteModalOpen(false);
+    } catch (err: any) {
+      toastError('فشل الحذف الجماعي', err?.response?.data?.message || err?.message || 'حدث خطأ أثناء الحذف');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
-      {/* Top Header & Main Action */}
+      {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">سجل المراجعين</h1>
-          <p className="text-xs text-slate-500 mt-1">
-            إدارة قاعدة بيانات المراجعين وتاريخ معاملاتهم وتفاصيل الاتصال
+          <p className="text-xs text-slate-500 mt-0.5">
+            إدارة بيانات المراجعين وسجل معاملاتهم وأرقام هواتفهم للتواصل والإشعارات
           </p>
         </div>
 
-        {canCreateCustomer && (
-          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto">
-            <Button
-              variant="primary"
-              size="md"
-              onClick={() => navigate('/customers/new')}
-              icon={<Plus className="w-4 h-4" />}
-              className="w-full sm:w-auto justify-center text-xs sm:text-sm font-bold shadow-sm"
-            >
-              + إضافة مراجع جديد
-            </Button>
-
-            <Button
-              variant="outline"
-              size="md"
-              onClick={() => setIsBulkImportOpen(true)}
-              icon={<FileSpreadsheet className="w-4 h-4 text-emerald-600" />}
-              className="w-full sm:w-auto justify-center text-xs sm:text-sm font-bold border-emerald-300 text-emerald-800 hover:bg-emerald-50 bg-emerald-50/30"
-            >
-              استيراد من Excel / CSV
-            </Button>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {canCreateCustomer && (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setIsBulkImportOpen(true)}
+                icon={<FileSpreadsheet className="w-4 h-4 text-emerald-600" />}
+              >
+                استيراد من Excel / CSV
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => navigate('/customers/new')}
+                icon={<Plus className="w-4 h-4" />}
+              >
+                + إضافة مراجع جديد
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-subtle flex items-center gap-3">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+      {/* Filter / Search Bar */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-subtle flex items-center justify-between gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={search}
@@ -145,8 +190,21 @@ export const CustomersListPage: React.FC = () => {
               setCurrentPage(1);
             }}
             placeholder="ابحث بالاسم، رقم هاتف واتساب، رقم الهوية الوطنية، أو العنوان..."
-            className="w-full pl-4 pr-10 py-2.5 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-600 transition"
+            className="w-full pl-4 pr-10 py-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-600 transition"
           />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="text-xs text-slate-500 font-bold">
+          إجمالي المراجعين المسجلين:{' '}
+          <span className="font-mono text-blue-600 font-black">{customers.length}</span>
         </div>
       </div>
 
@@ -182,6 +240,18 @@ export const CustomersListPage: React.FC = () => {
               إرسال رسالة واتساب مخصصة للمحددين
             </Button>
 
+            {canDeleteCustomer && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsBulkDeleteModalOpen(true)}
+                icon={<Trash2 className="w-4 h-4 text-rose-400" />}
+                className="text-rose-300 border-rose-700 hover:bg-rose-950/60 hover:text-white"
+              >
+                حذف المحددين ({selectedIds.length})
+              </Button>
+            )}
+
             <Button
               variant="outline"
               size="sm"
@@ -204,7 +274,7 @@ export const CustomersListPage: React.FC = () => {
             onAction={() => navigate('/customers/new')}
           />
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto custom-scrollbar-x">
             <table className="w-full text-right text-xs">
               <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
                 <tr>
@@ -253,10 +323,10 @@ export const CustomersListPage: React.FC = () => {
                           className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
                         />
                       </td>
-                      <td className="py-3.5 px-4 font-bold text-slate-900 group-hover:text-blue-600">
+                      <td className="py-3.5 px-4 font-bold text-slate-900">
                         <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-xs">
-                            {cust.name[0]}
+                          <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-[11px] group-hover:bg-blue-600 group-hover:text-white transition">
+                            {cust.name.substring(0, 1)}
                           </div>
                           <span>{cust.name}</span>
                         </div>
@@ -296,6 +366,18 @@ export const CustomersListPage: React.FC = () => {
                               <Edit className="w-4 h-4" />
                             </button>
                           )}
+                          {canDeleteCustomer && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCustomerToDelete(cust);
+                              }}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                              title="حذف المراجع من المنظومة"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -314,6 +396,94 @@ export const CustomersListPage: React.FC = () => {
           onPageChange={setCurrentPage}
         />
       </div>
+
+      {/* Single Customer Delete Confirmation Modal */}
+      {customerToDelete && (
+        <Modal
+          isOpen={Boolean(customerToDelete)}
+          onClose={() => setCustomerToDelete(null)}
+          title="تأكيد حذف المراجع"
+          maxWidth="md"
+        >
+          <div className="space-y-4 text-right" dir="rtl">
+            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3">
+              <div className="p-2 bg-rose-100 text-rose-700 rounded-xl shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-rose-950">هل أنت متأكد من رغبتك في حذف هذا المراجع؟</h4>
+                <p className="text-xs text-rose-700 mt-0.5">
+                  سيتم حذف بيانات المراجع <span className="font-bold text-rose-900">({customerToDelete.name})</span> المسجل برقم هاتف <span className="font-mono font-bold">({customerToDelete.phone})</span>.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <Button
+                variant="outline"
+                onClick={() => setCustomerToDelete(null)}
+                disabled={isDeleting}
+              >
+                إلغاء
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => confirmDeleteCustomer(false)}
+                isLoading={isDeleting}
+                icon={<Trash2 className="w-4 h-4" />}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
+              >
+                تأكيد الحذف
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {isBulkDeleteModalOpen && (
+        <Modal
+          isOpen={isBulkDeleteModalOpen}
+          onClose={() => setIsBulkDeleteModalOpen(false)}
+          title="تأكيد الحذف الجماعي للمراجعين"
+          maxWidth="md"
+        >
+          <div className="space-y-4 text-right" dir="rtl">
+            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3">
+              <div className="p-2 bg-rose-100 text-rose-700 rounded-xl shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-rose-950">
+                  هل أنت متأكد من حذف ({selectedIds.length}) مراجع محدد؟
+                </h4>
+                <p className="text-xs text-rose-700 mt-0.5">
+                  سيتم إزالة جميع المراجعين المحددين من سجل المنظومة. لا يمكن التراجع عن هذه العملية بعد إتمامها.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <Button
+                variant="outline"
+                onClick={() => setIsBulkDeleteModalOpen(false)}
+                disabled={isDeleting}
+              >
+                إلغاء
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => confirmBulkDelete(false)}
+                isLoading={isDeleting}
+                icon={<Trash2 className="w-4 h-4" />}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
+              >
+                حذف ({selectedIds.length}) مراجع الآن
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* Bulk Import Modal */}
       <BulkImportCustomersModal

@@ -36,8 +36,14 @@ export const customerService = {
     return apiClient.patch<Customer>(`/customers/${id}`, updates);
   },
 
-  deleteCustomer: async (id: string): Promise<void> => {
-    await apiClient.delete(`/customers/${id}`);
+  deleteCustomer: async (id: string, force?: boolean): Promise<void> => {
+    await apiClient.delete(`/customers/${id}`, {
+      params: force ? { force: 'true' } : undefined
+    });
+  },
+
+  bulkDeleteCustomers: async (ids: string[], force?: boolean): Promise<{ deletedCount: number; blockedCount: number; total: number }> => {
+    return apiClient.post('/customers/bulk-delete', { ids, force });
   },
 
   bulkImport: async (rows: any[]): Promise<{ successCount: number; failCount: number; errors: string[] }> => {

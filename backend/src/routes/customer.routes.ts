@@ -5,6 +5,7 @@ import {
   createCustomer,
   updateCustomer,
   deleteCustomer,
+  bulkDeleteCustomers,
   bulkImportCustomers
 } from '../controllers/customer.controller.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
@@ -16,6 +17,7 @@ customerRouter.use(authenticate);
 
 customerRouter.get('/', requirePermission('customers.view'), getCustomers);
 customerRouter.post('/bulk-import', requirePermission('customers.create'), bulkImportCustomers);
+customerRouter.post('/bulk-delete', requirePermission('customers.delete'), bulkDeleteCustomers);
 customerRouter.get('/:id', requirePermission('customers.view'), getCustomerById);
 customerRouter.post('/', requirePermission('customers.create'), createCustomer);
 customerRouter.patch('/:id', requirePermission('customers.update'), updateCustomer);

@@ -36,6 +36,7 @@ import {
   markAllNotificationsAsRead,
   updateSystemSettings
 } from '../services/api';
+import { customerService } from '../services/customerService';
 import { realtimeService } from '../services/realtimeService';
 
 interface DataContextType {
@@ -64,6 +65,8 @@ interface DataContextType {
   handleChangeStatus: typeof changeRequestStatus;
   handleCreateCustomer: typeof createCustomer;
   handleUpdateCustomer: typeof updateCustomer;
+  handleDeleteCustomer: (id: string, force?: boolean) => Promise<void>;
+  handleBulkDeleteCustomers: (ids: string[], force?: boolean) => Promise<{ deletedCount: number; blockedCount: number; total: number }>;
   handleCreateMinistry: typeof createMinistry;
   handleUpdateMinistry: typeof updateMinistry;
   handleCreateEmployee: typeof createEmployee;
@@ -275,6 +278,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return res;
   };
 
+  const handleDeleteCustomer = async (id: string, force?: boolean) => {
+    await customerService.deleteCustomer(id, force);
+    await refreshData();
+  };
+
+  const handleBulkDeleteCustomers = async (ids: string[], force?: boolean) => {
+    const res = await customerService.bulkDeleteCustomers(ids, force);
+    await refreshData();
+    return res;
+  };
+
   const handleCreateMinistry: typeof createMinistry = async (data) => {
     const res = await createMinistry(data);
     await refreshData();
@@ -358,6 +372,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         handleChangeStatus,
         handleCreateCustomer,
         handleUpdateCustomer,
+        handleDeleteCustomer,
+        handleBulkDeleteCustomers,
         handleCreateMinistry,
         handleUpdateMinistry,
         handleCreateEmployee,

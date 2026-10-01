@@ -396,6 +396,7 @@ export const updateCustomer = async (req: Request, res: Response, next: NextFunc
 export const deleteCustomer = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
+    const force = req.query.force === 'true' || req.body.force === true;
 
     const existing = await prisma.customer.findUnique({
       where: { id },
@@ -406,7 +407,7 @@ export const deleteCustomer = async (req: Request, res: Response, next: NextFunc
       throw new AppError('المراجع غير موجود في النظام', 404, 'CUSTOMER_NOT_FOUND');
     }
 
-    if (existing.requests.length > 0) {
+    if (existing.requests.length > 0 && !force) {
       await prisma.customer.update({
         where: { id },
         data: { status: CustomerStatus.BLOCKED }
@@ -420,6 +421,14 @@ export const deleteCustomer = async (req: Request, res: Response, next: NextFunc
     }
 
     await prisma.$transaction(async (tx) => {
+      const requestIds = existing.requests.map((r) => r.id);
+      if (requestIds.length > 0) {
+        await tx.citizenRating.deleteMany({ where: { requestId: { in: requestIds } } }).catch(() => {});
+        await tx.requestStatusHistory.deleteMany({ where: { requestId: { in: requestIds } } }).catch(() => {});
+        await tx.requestAttachment.deleteMany({ where: { requestId: { in: requestIds } } }).catch(() => {});
+        await tx.request.deleteMany({ where: { id: { in: requestIds } } }).catch(() => {});
+      }
+      await tx.requestAttachment.deleteMany({ where: { customerId: id } }).catch(() => {});
       await tx.customer.delete({ where: { id } });
 
       if (req.user) {
@@ -440,6 +449,56 @@ export const deleteCustomer = async (req: Request, res: Response, next: NextFunc
     });
 
     return sendSuccess(res, null, 'تم حذف المراجع بنجاح');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const bulkDeleteCustomers = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { ids, force } = req.body;
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new AppError('يرجى تحديد مراجع واحد على الأقل للحذف', 400, 'NO_CUSTOMERS_SELECTED');
+    }
+
+    let deletedCount = 0;
+    let blockedCount = 0;
+
+    for (const id of ids) {
+      const existing = await prisma.customer.findUnique({
+        where: { id },
+        include: { requests: { select: { id: true } } }
+      });
+      if (!existing) continue;
+
+      if (existing.requests.length > 0 && !force) {
+        await prisma.customer.update({
+          where: { id },
+          data: { status: CustomerStatus.BLOCKED }
+        });
+        blockedCount++;
+      } else {
+        await prisma.$transaction(async (tx) => {
+          const requestIds = existing.requests.map((r) => r.id);
+          if (requestIds.length > 0) {
+            await tx.citizenRating.deleteMany({ where: { requestId: { in: requestIds } } }).catch(() => {});
+            await tx.requestStatusHistory.deleteMany({ where: { requestId: { in: requestIds } } }).catch(() => {});
+            await tx.requestAttachment.deleteMany({ where: { requestId: { in: requestIds } } }).catch(() => {});
+            await tx.request.deleteMany({ where: { id: { in: requestIds } } }).catch(() => {});
+          }
+          await tx.requestAttachment.deleteMany({ where: { customerId: id } }).catch(() => {});
+          await tx.customer.delete({ where: { id } });
+        });
+        deletedCount++;
+      }
+    }
+
+    return sendSuccess(
+      res,
+      { deletedCount, blockedCount, total: ids.length },
+      `تم حذف ${deletedCount} مراجع بنجاح${blockedCount > 0 ? ` (وتم تعطيل ${blockedCount} مراجع لوجود معاملات سابقة)` : ''}`
+    );
   } catch (error) {
     next(error);
   }
