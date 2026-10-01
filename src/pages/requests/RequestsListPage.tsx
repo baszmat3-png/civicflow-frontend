@@ -177,15 +177,17 @@ export const RequestsListPage: React.FC = () => {
 
     if (search.trim()) {
       const q = search.toLowerCase().trim();
-      list = list.filter(
-        (r) =>
-          r.requestNumber.toLowerCase().includes(q) ||
+      list = list.filter((r) =>
+        Boolean(
+          (r.requestNumber && r.requestNumber.toLowerCase().includes(q)) ||
           (r.customerNumber && r.customerNumber.toLowerCase().includes(q)) ||
           (r.nationalId && r.nationalId.includes(q)) ||
           (r.cityName && r.cityName.toLowerCase().includes(q)) ||
-          r.customerName.toLowerCase().includes(q) ||
-          r.customerPhone.includes(q) ||
-          r.title.toLowerCase().includes(q)
+          (r.customerName && r.customerName.toLowerCase().includes(q)) ||
+          (r.customerPhone && r.customerPhone.includes(q)) ||
+          (r.title && r.title.toLowerCase().includes(q)) ||
+          (r.ministryName && r.ministryName.toLowerCase().includes(q))
+        )
       );
     }
 
@@ -194,11 +196,20 @@ export const RequestsListPage: React.FC = () => {
     }
 
     if (ministryFilter !== 'all') {
-      list = list.filter((r) => r.ministryId === ministryFilter);
+      list = list.filter((r) =>
+        r.ministryId === ministryFilter ||
+        (r as any).ministry?.id === ministryFilter ||
+        r.ministryName === ministryFilter ||
+        (r as any).ministry?.name === ministryFilter
+      );
     }
 
     if (employeeFilter !== 'all') {
-      list = list.filter((r) => r.assignedEmployeeId === employeeFilter);
+      list = list.filter((r) =>
+        r.assignedEmployeeId === employeeFilter ||
+        (r as any).assignedEmployee?.id === employeeFilter ||
+        r.assignedEmployeeName === employeeFilter
+      );
     }
 
     if (priorityFilter !== 'all') {
@@ -206,7 +217,7 @@ export const RequestsListPage: React.FC = () => {
     }
 
     if (typeFilter !== 'all') {
-      list = list.filter((r) => r.requestType === typeFilter);
+      list = list.filter((r) => r.requestType === typeFilter || (r as any).requestTypeId === typeFilter);
     }
 
     if (overdueOnly) {
@@ -214,17 +225,17 @@ export const RequestsListPage: React.FC = () => {
     }
 
     if (fromDate) {
-      list = list.filter((r) => r.receiveDate >= fromDate);
+      list = list.filter((r) => Boolean(r.receiveDate && r.receiveDate >= fromDate));
     }
 
     if (toDate) {
-      list = list.filter((r) => r.receiveDate <= toDate);
+      list = list.filter((r) => Boolean(r.receiveDate && r.receiveDate <= toDate));
     }
 
     // Sort
     list.sort((a, b) => {
-      const aVal = a[sortField] || '';
-      const bVal = b[sortField] || '';
+      const aVal = String(a[sortField] || '');
+      const bVal = String(b[sortField] || '');
       if (sortDirection === 'asc') return aVal.localeCompare(bVal);
       return bVal.localeCompare(aVal);
     });
@@ -784,11 +795,11 @@ export const RequestsListPage: React.FC = () => {
 
             {canChangeStatus && (
               <Button
-                variant="outline"
+                variant="primary"
                 size="sm"
                 onClick={() => setIsBulkStatusModalOpen(true)}
-                icon={<RefreshCw className="w-4 h-4 text-blue-400" />}
-                className="text-white border-slate-700 hover:bg-slate-800"
+                icon={<RefreshCw className="w-4 h-4 text-white" />}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-600/20"
               >
                 تغيير الحالة
               </Button>
@@ -798,7 +809,7 @@ export const RequestsListPage: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={() => setSelectedIds([])}
-              className="text-slate-300 border-slate-700 hover:bg-slate-800"
+              className="bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-600 font-bold"
             >
               إلغاء التحديد
             </Button>

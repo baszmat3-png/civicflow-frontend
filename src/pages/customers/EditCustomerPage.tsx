@@ -32,15 +32,17 @@ export const EditCustomerPage: React.FC = () => {
   const [status, setStatus] = useState<'نشط' | 'محظور'>('نشط');
   const [cities, setCities] = useState<City[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const initializedIdRef = React.useRef<string | null>(null);
 
   useEffect(() => {
     cityService.getActive().then(setCities).catch(() => {});
   }, []);
 
   useEffect(() => {
-    if (customer) {
-      setName(customer.name);
-      setPhone(customer.phone);
+    if (customer && initializedIdRef.current !== customer.id) {
+      initializedIdRef.current = customer.id;
+      setName(customer.name || '');
+      setPhone(customer.phone || '');
       setAltPhone(customer.altPhone || '');
       setNationalId(customer.nationalId || '');
       setOccupation(customer.occupation || 'كاسب');
@@ -49,7 +51,7 @@ export const EditCustomerPage: React.FC = () => {
       setCityId(customer.cityId || '');
       setAddress(customer.address || '');
       setNotes(customer.notes || '');
-      setStatus(customer.status);
+      setStatus(customer.status || 'نشط');
     }
   }, [customer]);
 

@@ -256,7 +256,7 @@ export const CustomersListPage: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={() => setSelectedIds([])}
-              className="text-slate-300 border-slate-700 hover:bg-slate-800"
+              className="bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-600 font-bold"
             >
               إلغاء التحديد
             </Button>
