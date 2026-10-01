@@ -562,7 +562,7 @@ export const RequestsListPage: React.FC = () => {
           type="button"
           onClick={() => {
             setSourceTab('overdue');
-            setOverdueOnly(true);
+            setOverdueOnly(false);
             setCurrentPage(1);
           }}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition select-none shadow-xs border ${
@@ -613,7 +613,11 @@ export const RequestsListPage: React.FC = () => {
             {/* Quick Overdue Filter Toggle */}
             <button
               onClick={() => {
-                setOverdueOnly(!overdueOnly);
+                const next = !overdueOnly;
+                setOverdueOnly(next);
+                if (next && sourceTab === 'overdue') {
+                  setSourceTab('all');
+                }
                 setCurrentPage(1);
               }}
               className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition border select-none ${
