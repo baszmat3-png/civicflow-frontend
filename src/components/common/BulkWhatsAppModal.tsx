@@ -114,56 +114,59 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
 
   const isPausedRef = useRef(isPaused);
   const isCancelledRef = useRef(false);
+  const prevIsOpenRef = useRef(false);
 
   useEffect(() => {
     isPausedRef.current = isPaused;
   }, [isPaused]);
 
+  // Initialize ONCE when modal is opened
   useEffect(() => {
-    if (!isOpen) return;
+    if (isOpen && !prevIsOpenRef.current) {
+      // Just opened
+      setRecipientList(
+        recipients.map((r) => ({
+          ...r,
+          status: 'idle'
+        }))
+      );
+      setIsSending(false);
+      setIsPaused(false);
+      setCurrentIndex(0);
+      setCountdown(0);
+      setCompletedSummary(null);
+      isCancelledRef.current = false;
 
-    // Initialize recipient state list
-    setRecipientList(
-      recipients.map((r) => ({
-        ...r,
-        status: 'idle'
-      }))
-    );
-    setIsSending(false);
-    setIsPaused(false);
-    setCurrentIndex(0);
-    setCountdown(0);
-    setCompletedSummary(null);
-    isCancelledRef.current = false;
+      const fetchTemplates = async () => {
+        try {
+          setLoadingTemplates(true);
+          const list = await whatsappService.getTemplates();
+          setTemplates(list);
 
-    const fetchTemplates = async () => {
-      try {
-        setLoadingTemplates(true);
-        const list = await whatsappService.getTemplates();
-        setTemplates(list);
+          const defaultTpl =
+            list.find((t) => t.key === 'bulk_custom_message') ||
+            list.find((t) => t.key === 'status_updated') ||
+            list[0];
 
-        const defaultTpl =
-          list.find((t) => t.key === 'bulk_custom_message') ||
-          list.find((t) => t.key === 'status_updated') ||
-          list[0];
-
-        if (defaultTpl) {
-          setSelectedTemplateKey(defaultTpl.key);
-          setMessageText(defaultTpl.content);
-        } else {
-          setMessageText(
-            'السلام عليكم الأخ/الأخت {{customer_name}} المحترم،\nنود إعلامكم بخصوص معاملتكم ({{request_number}}) لدى ({{ministry}}):\nيرجى العلم بأنه تم تحديث الإجراءات بنجاح.\n\nلمتابعة التفاصيل: {{tracking_link}}\nمع تحيات مكتب المتابعة.'
-          );
+          if (defaultTpl) {
+            setSelectedTemplateKey(defaultTpl.key);
+            setMessageText(defaultTpl.content);
+          } else {
+            setMessageText(
+              'السلام عليكم الأخ/الأخت {{customer_name}} المحترم،\nنود إعلامكم بخصوص معاملتكم ({{request_number}}) لدى ({{ministry}}):\nيرجى العلم بأنه تم تحديث الإجراءات بنجاح.\n\nلمتابعة التفاصيل: {{tracking_link}}\nمع تحيات مكتب المتابعة.'
+            );
+          }
+        } catch (err) {
+          console.error('Failed to load whatsapp templates', err);
+        } finally {
+          setLoadingTemplates(false);
         }
-      } catch (err) {
-        console.error('Failed to load whatsapp templates', err);
-      } finally {
-        setLoadingTemplates(false);
-      }
-    };
+      };
 
-    fetchTemplates();
-  }, [isOpen, recipients]);
+      fetchTemplates();
+    }
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen]);
 
   const handleSelectTemplate = (key: string) => {
     setSelectedTemplateKey(key);
@@ -205,7 +208,7 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
   };
 
   // Preview sample
-  const sampleRecipient = recipients[0] || {
+  const sampleRecipient = recipientList[0] || recipients[0] || {
     customerName: 'محمد أحمد',
     requestNumber: 'REQ-2026-0001',
     ministry: 'وزارة الإسكان',
@@ -235,6 +238,7 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
 
     let successCount = 0;
     let failCount = 0;
+    const currentMsgSnapshot = messageText;
 
     for (let i = 0; i < recipientList.length; i++) {
       if (isCancelledRef.current) break;
@@ -254,7 +258,7 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
       );
 
       const targetPhone = formatWhatsAppPhone(currentItem.phoneNumber);
-      const itemMsg = formatMessageForRecipient(currentItem, messageText);
+      const itemMsg = formatMessageForRecipient(currentItem, currentMsgSnapshot);
 
       try {
         await whatsappService.sendWhatsApp(
@@ -345,7 +349,7 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
             </div>
             <div>
               <h4 className="text-sm font-bold text-emerald-950">
-                المستلمون المختارون: ({recipients.length}) مراجع / معاملة
+                المستلمون المختارون: ({recipientList.length || recipients.length}) مراجع / معاملة
               </h4>
               <p className="text-xs text-emerald-700">
                 سيتم توليد رسالة واتساب مخصصة لكل مستلم باسمه ومعلومات معاملته تلقائياً
@@ -353,7 +357,7 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
             </div>
           </div>
           <span className="px-3.5 py-1.5 bg-emerald-200/80 text-emerald-900 rounded-full text-xs font-black self-start sm:self-center shadow-xs">
-            {recipients.length} مستلم
+            {recipientList.length || recipients.length} مستلم
           </span>
         </div>
 
@@ -609,12 +613,12 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
                 type="button"
                 variant="primary"
                 onClick={handleStartSequentialSend}
-                disabled={isSending || recipients.length === 0 || !messageText.trim()}
+                disabled={isSending || recipientList.length === 0 || !messageText.trim()}
                 isLoading={isSending}
                 icon={<Send className="w-4 h-4" />}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 shadow-md shadow-emerald-600/20"
               >
-                {isSending ? 'جارٍ الإرسال...' : `إرسال WhatsApp لـ (${recipients.length}) مراجع`}
+                {isSending ? 'جارٍ الإرسال...' : `إرسال WhatsApp لـ (${recipientList.length}) مراجع`}
               </Button>
             ) : (
               <Button

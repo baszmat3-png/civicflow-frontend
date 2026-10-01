@@ -28,15 +28,16 @@ export const getCustomers = async (req: Request, res: Response, next: NextFuncti
       search,
       status,
       cityId,
-      page = '1',
-      limit = '100',
+      page,
+      limit,
       sortBy = 'createdAt',
       sortOrder = 'desc'
     } = req.query;
 
     const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
-    const limitNum = Math.max(1, Math.min(200, parseInt(limit as string, 10) || 100));
-    const skip = (pageNum - 1) * limitNum;
+    const isUnbounded = !limit || limit === 'all' || limit === '0' || limit === '-1';
+    const limitNum = isUnbounded ? 100000 : Math.max(1, parseInt(limit as string, 10) || 100000);
+    const skip = isUnbounded && !page ? 0 : (pageNum - 1) * limitNum;
 
     const where: any = {};
 
