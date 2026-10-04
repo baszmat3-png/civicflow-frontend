@@ -14,6 +14,7 @@ import { SendNotificationModal } from '../../components/request/SendNotification
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { addRequestAttachment, addFinalResponse } from '../../services/api';
 import { requestService } from '../../services/requestService';
+import { exportRequestItemToWord } from '../../services/wordExportService';
 import { usePermissions } from '../../hooks/usePermissions';
 import {
   User,
@@ -36,14 +37,15 @@ import {
   CheckCircle2,
   MapPin,
   ArrowRight,
-  Download
+  Download,
+  FileDown
 } from 'lucide-react';
 
 export const RequestDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { requests, refreshData, handleDeleteRequest, handleChangeStatus, auditLogs } = useData();
-  const { success } = useToast();
+  const { success, error: toastError } = useToast();
   const {
     canUpdateRequest,
     canDeleteRequest,
@@ -62,6 +64,7 @@ export const RequestDetailsPage: React.FC = () => {
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isExportingWord, setIsExportingWord] = useState(false);
 
   if (!request) {
     return (
@@ -215,6 +218,28 @@ export const RequestDetailsPage: React.FC = () => {
               تعديل
             </Button>
           )}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              try {
+                setIsExportingWord(true);
+                await exportRequestItemToWord(request);
+                success('تم تجهيز ملف Word', 'تم تصدير وتحميل مستند المعاملة بصيغة Word (.docx) بنجاح.');
+              } catch (err: any) {
+                toastError('فشل التصدير', err?.message || 'حدث خطأ أثناء تصدير ملف Word');
+              } finally {
+                setIsExportingWord(false);
+              }
+            }}
+            isLoading={isExportingWord}
+            icon={<FileText className="w-4 h-4 text-blue-600" />}
+            className="border-blue-200 text-blue-800 hover:bg-blue-50 font-bold"
+            title="تصدير وطباعة تفاصيل المعاملة إلى ملف Word (.docx)"
+          >
+            طباعة Word
+          </Button>
 
           <Button variant="outline" size="sm" onClick={handlePrint} icon={<Printer className="w-4 h-4" />}>
             طباعة

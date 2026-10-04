@@ -180,6 +180,10 @@ export const updateEmployee = async (id: string, updates: Partial<Employee>): Pr
   return employeeService.updateEmployee(id, updates);
 };
 
+export const deleteEmployee = async (id: string): Promise<void> => {
+  return employeeService.deleteEmployee(id);
+};
+
 export const getRoles = async (): Promise<Role[]> => {
   return roleService.getRoles();
 };

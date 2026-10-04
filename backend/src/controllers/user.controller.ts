@@ -5,6 +5,7 @@ import { hashPassword } from '../utils/password.js';
 import { AppError } from '../middlewares/error.middleware.js';
 import { sendSuccess } from '../utils/apiResponse.js';
 import { UserStatus } from '@prisma/client';
+import { formatDateTimePlus3 } from '../utils/dateTime.js';
 
 const createUserSchema = z.object({
   name: z.string().min(2, 'الاسم مطلوب'),
@@ -55,7 +56,7 @@ export const getUsers = async (req: Request, res: Response, next: NextFunction) 
       assignedMinistries: u.assignedMinistries || [],
       isAutoAssignEnabled: u.isAutoAssignEnabled ?? true,
       status: u.status === UserStatus.ACTIVE ? 'نشط' : 'غير نشط',
-      lastLogin: u.lastLogin ? u.lastLogin.toISOString().replace('T', ' ').substring(0, 16) : 'لم يسجل دخول بعد',
+      lastLogin: u.lastLogin ? formatDateTimePlus3(u.lastLogin) : 'لم يسجل دخول بعد',
       avatarUrl: u.avatarUrl || undefined
     }));
 
@@ -121,7 +122,7 @@ export const getUserById = async (req: Request, res: Response, next: NextFunctio
       department: user.department || 'إدارة المتابعة',
       assignedRequestsCount: user.assignedRequests.length,
       status: user.status === UserStatus.ACTIVE ? 'نشط' : 'غير نشط',
-      lastLogin: user.lastLogin ? user.lastLogin.toISOString().replace('T', ' ').substring(0, 16) : 'لم يسجل دخول بعد',
+      lastLogin: user.lastLogin ? formatDateTimePlus3(user.lastLogin) : 'لم يسجل دخول بعد',
       avatarUrl: user.avatarUrl || undefined,
       requests: formattedRequests
     };
@@ -293,7 +294,7 @@ export const updateUser = async (req: Request, res: Response, next: NextFunction
       assignedMinistries: updated.assignedMinistries || [],
       isAutoAssignEnabled: updated.isAutoAssignEnabled ?? true,
       status: updated.status === UserStatus.ACTIVE ? 'نشط' : 'غير نشط',
-      lastLogin: updated.lastLogin ? updated.lastLogin.toISOString().replace('T', ' ').substring(0, 16) : 'لم يسجل دخول بعد'
+      lastLogin: updated.lastLogin ? formatDateTimePlus3(updated.lastLogin) : 'لم يسجل دخول بعد'
     };
 
     return sendSuccess(res, formatted, 'تم تحديث بيانات الموظف بنجاح');
@@ -345,26 +346,78 @@ export const deleteUser = async (req: Request, res: Response, next: NextFunction
   try {
     const { id } = req.params;
 
+    if (req.user && req.user.id === id) {
+      throw new AppError('لا يمكن للمستخدم حذف حسابه الشخصي المسجل به حالياً', 400, 'CANNOT_DELETE_SELF');
+    }
+
     const existing = await prisma.user.findUnique({
       where: { id },
-      include: { assignedRequests: { select: { id: true } } }
+      include: {
+        role: true,
+        assignedRequests: { select: { id: true } }
+      }
     });
 
     if (!existing) {
-      throw new AppError('الموظف غير موجود', 404, 'USER_NOT_FOUND');
+      throw new AppError('الموظف غير موجود في النظام', 404, 'USER_NOT_FOUND');
     }
 
-    if (existing.assignedRequests.length > 0) {
-      // Deactivate rather than delete
-      await prisma.user.update({
-        where: { id },
-        data: { status: UserStatus.INACTIVE }
+    await prisma.$transaction(async (tx) => {
+      // 1. Unassign all requests previously assigned to this employee
+      await tx.request.updateMany({
+        where: { assignedEmployeeId: id },
+        data: { assignedEmployeeId: null }
       });
-      return sendSuccess(res, null, 'تم تعطيل حساب الموظف بدلاً من الحذف لوجود معاملات مسندة إليه');
-    }
 
-    await prisma.user.delete({ where: { id } });
-    return sendSuccess(res, null, 'تم حذف حساب الموظف بنجاح');
+      // 2. Set changedById to null for any status history entries made by this user
+      await tx.requestStatusHistory.updateMany({
+        where: { changedById: id },
+        data: { changedById: null }
+      });
+
+      // 3. Clear user notifications
+      await tx.notification.deleteMany({
+        where: { userId: id }
+      });
+
+      // 4. Clear auth tokens & otp verifications
+      await tx.refreshToken.deleteMany({
+        where: { userId: id }
+      });
+      await tx.otpVerification.deleteMany({
+        where: { userId: id }
+      });
+
+      // 5. Unlink audit logs
+      await tx.auditLog.updateMany({
+        where: { userId: id },
+        data: { userId: null }
+      });
+
+      // 6. Delete user
+      await tx.user.delete({
+        where: { id }
+      });
+
+      // 7. Audit the employee deletion
+      if (req.user) {
+        await tx.auditLog.create({
+          data: {
+            userId: req.user.id,
+            userName: req.user.name,
+            userRole: req.user.role,
+            action: 'حذف موظف',
+            entity: 'User',
+            entityId: id,
+            details: `حذف حساب الموظف: ${existing.name} (${existing.email}) - الدور: ${existing.role.name}`,
+            beforeValue: { name: existing.name, email: existing.email, role: existing.role.name },
+            ipAddress: req.ip
+          }
+        });
+      }
+    });
+
+    return sendSuccess(res, null, `تم حذف حساب الموظف (${existing.name}) بنجاح`);
   } catch (error) {
     next(error);
   }

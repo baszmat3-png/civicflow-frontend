@@ -29,6 +29,7 @@ import {
   updateMinistry,
   createEmployee,
   updateEmployee,
+  deleteEmployee,
   createRole,
   updateRole,
   deleteRole,
@@ -71,6 +72,7 @@ interface DataContextType {
   handleUpdateMinistry: typeof updateMinistry;
   handleCreateEmployee: typeof createEmployee;
   handleUpdateEmployee: typeof updateEmployee;
+  handleDeleteEmployee: typeof deleteEmployee;
   handleCreateRole: typeof createRole;
   handleUpdateRole: typeof updateRole;
   handleDeleteRole: typeof deleteRole;
@@ -313,6 +315,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return res;
   };
 
+  const handleDeleteEmployee: typeof deleteEmployee = async (id) => {
+    await deleteEmployee(id);
+    await refreshData();
+  };
+
   const handleCreateRole: typeof createRole = async (data) => {
     const res = await createRole(data);
     await refreshData();
@@ -378,6 +385,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         handleUpdateMinistry,
         handleCreateEmployee,
         handleUpdateEmployee,
+        handleDeleteEmployee,
         handleCreateRole,
         handleUpdateRole,
         handleDeleteRole,

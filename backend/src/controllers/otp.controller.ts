@@ -6,6 +6,7 @@ import { generateAccessToken, generateRefreshToken, hashToken } from '../utils/t
 import { AppError } from '../middlewares/error.middleware.js';
 import { sendSuccess } from '../utils/apiResponse.js';
 import { issueOtp, resendOtp as resendOtpService, verifyOtp as verifyOtpService } from '../services/otp.service.js';
+import { formatDateTimePlus3 } from '../utils/dateTime.js';
 
 const emailSchema = z.object({
   email: z.string().trim().email('صيغة البريد الإلكتروني غير صحيحة')
@@ -28,7 +29,7 @@ const safeUserShape = (user: any, permissions: string[]): Record<string, unknown
   department: user.department || '',
   status: user.status === 'ACTIVE' ? 'نشط' : 'غير نشط',
   emailVerified: user.emailVerified ?? false,
-  lastLogin: user.lastLogin ? user.lastLogin.toISOString().replace('T', ' ').substring(0, 16) : 'الآن',
+  lastLogin: user.lastLogin ? formatDateTimePlus3(user.lastLogin) : 'الآن',
   avatarUrl: user.avatarUrl || undefined,
   assignedRequestsCount: 0,
   permissions

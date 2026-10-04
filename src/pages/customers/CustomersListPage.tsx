@@ -32,7 +32,7 @@ import {
 
 export const CustomersListPage: React.FC = () => {
   const navigate = useNavigate();
-  const { customers, requests, handleDeleteCustomer, handleBulkDeleteCustomers } = useData();
+  const { customers, requests, handleDeleteCustomer, handleBulkDeleteCustomers, refreshData } = useData();
   const { success, error: toastError } = useToast();
   const { canCreateCustomer, canUpdateCustomer, canDeleteCustomer } = usePermissions();
 
@@ -52,14 +52,15 @@ export const CustomersListPage: React.FC = () => {
   const pageSize = 8;
 
   const filteredCustomers = useMemo(() => {
+    if (!Array.isArray(customers)) return [];
     if (!search.trim()) return customers;
     const q = search.toLowerCase().trim();
     return customers.filter(
       (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.phone.includes(q) ||
-        (c.nationalId && c.nationalId.includes(q)) ||
-        (c.address && c.address.toLowerCase().includes(q))
+        (c?.name || '').toLowerCase().includes(q) ||
+        (c?.phone || '').includes(q) ||
+        (c?.nationalId && c.nationalId.includes(q)) ||
+        (c?.address && c.address.toLowerCase().includes(q))
     );
   }, [customers, search]);
 
@@ -94,13 +95,13 @@ export const CustomersListPage: React.FC = () => {
   const selectedRecipients = useMemo(() => {
     return selectedIds
       .map((id) => {
-        const cust = customers.find((c) => c.id === id);
+        const cust = customers.find((c) => c && c.id === id);
         if (!cust) return null;
-        const custReq = requests.find((r) => r.customerId === cust.id);
+        const custReq = requests.find((r) => r && r.customerId === cust.id);
         return {
           id: cust.id,
-          phoneNumber: cust.phone,
-          customerName: cust.name,
+          phoneNumber: cust.phone || '',
+          customerName: cust.name || '',
           requestNumber: custReq?.requestNumber || cust.customerNumber || `CUST-${cust.id.substring(0, 5)}`,
           ministry: custReq?.ministryName || 'الجهة الحكومية',
           title: custReq?.title || 'معاملة المراجع',
@@ -300,7 +301,7 @@ export const CustomersListPage: React.FC = () => {
               <tbody className="divide-y divide-slate-100">
                 {paginatedCustomers.map((cust) => {
                   const isSelected = selectedIds.includes(cust.id);
-                  const actualCustRequests = requests.filter((r) => r.customerId === cust.id);
+                  const actualCustRequests = requests.filter((r) => r && r.customerId === cust.id);
                   const custReqCount = actualCustRequests.length || cust.requestsCount || 0;
                   const latestReqDate = actualCustRequests[0]?.receiveDate || cust.lastRequestDate || '---';
 
@@ -326,12 +327,12 @@ export const CustomersListPage: React.FC = () => {
                       <td className="py-3.5 px-4 font-bold text-slate-900">
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-[11px] group-hover:bg-blue-600 group-hover:text-white transition">
-                            {cust.name.substring(0, 1)}
+                            {(cust.name || 'م')[0]}
                           </div>
-                          <span>{cust.name}</span>
+                          <span>{cust.name || 'مراجع'}</span>
                         </div>
                       </td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-700">{cust.phone}</td>
+                      <td className="py-3.5 px-4 font-mono font-bold text-slate-700">{cust.phone || '---'}</td>
                       <td className="py-3.5 px-4 font-mono text-slate-500">{cust.nationalId || '---'}</td>
                       <td className="py-3.5 px-4 text-slate-600 max-w-xs truncate">{cust.address || '---'}</td>
                       <td className="py-3.5 px-4 text-center">
@@ -340,7 +341,7 @@ export const CustomersListPage: React.FC = () => {
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-slate-500 font-mono">{latestReqDate}</td>
-                      <td className="py-3.5 px-4 text-slate-400 font-mono">{cust.createdAt}</td>
+                      <td className="py-3.5 px-4 text-slate-400 font-mono">{cust.createdAt || '---'}</td>
                       <td className="py-3.5 px-4 text-center">
                         <div className="flex items-center justify-center gap-1">
                           <button
@@ -489,7 +490,9 @@ export const CustomersListPage: React.FC = () => {
       <BulkImportCustomersModal
         isOpen={isBulkImportOpen}
         onClose={() => setIsBulkImportOpen(false)}
-        onSuccess={() => window.location.reload()}
+        onSuccess={() => {
+          refreshData();
+        }}
       />
 
       {/* Bulk WhatsApp Messages Modal */}

@@ -14,6 +14,7 @@ import { verifyAndValidateUploadedFile, cleanupFile } from '../utils/fileIntegri
 import { autoAssignRequestToEmployee } from '../services/autoAssign.service.js';
 import { checkDuplicateRequest } from '../services/duplicateDetector.service.js';
 import { realtimeService } from '../services/realtime.service.js';
+import { formatDatePlus3, formatTimePlus3, formatDateTimePlus3 } from '../utils/dateTime.js';
 
 const createRequestSchema = z.object({
   customerId: z.string().min(1, 'المراجع مطلوب'),
@@ -71,8 +72,8 @@ const priorityToAr = (p: PriorityLevel): 'عادي' | 'مهم' | 'عاجل' => {
 const formatRequestItem = (r: any) => {
   const timeline = (r.statusHistory || []).map((h: any) => {
     const d = new Date(h.createdAt);
-    const dateStr = d.toISOString().split('T')[0];
-    const timeStr = d.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+    const dateStr = formatDatePlus3(d);
+    const timeStr = formatTimePlus3(d);
     return {
       id: h.id,
       status: h.newStatus,
@@ -97,7 +98,7 @@ const formatRequestItem = (r: any) => {
     documentType: a.documentType,
     isPublic: a.isPublic,
     isIdentity: a.isIdentity,
-    uploadedAt: new Date(a.uploadedAt).toISOString().replace('T', ' ').substring(0, 16),
+    uploadedAt: formatDateTimePlus3(a.uploadedAt),
     uploadedBy: a.uploadedBy,
     url: `/uploads/${a.filePath}`
   }));
@@ -108,12 +109,12 @@ const formatRequestItem = (r: any) => {
         decision: r.finalResponse.decision,
         summary: r.finalResponse.summary,
         documentNumber: r.finalResponse.documentNumber || undefined,
-        issuedAt: new Date(r.finalResponse.issuedAt).toISOString().replace('T', ' ').substring(0, 16),
+        issuedAt: formatDateTimePlus3(r.finalResponse.issuedAt),
         issuedBy: r.finalResponse.issuedBy,
         attachmentName: r.finalResponse.attachmentName || undefined,
         attachmentPath: r.finalResponse.attachmentPath || undefined,
         deliveredToCustomer: r.finalResponse.deliveredToCustomer,
-        deliveryDate: r.finalResponse.deliveryDate ? r.finalResponse.deliveryDate.toISOString().split('T')[0] : undefined
+        deliveryDate: r.finalResponse.deliveryDate ? formatDatePlus3(r.finalResponse.deliveryDate) : undefined
       }
     : undefined;
 

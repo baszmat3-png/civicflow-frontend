@@ -3,6 +3,7 @@ import { prisma } from '../config/database.js';
 import { AppError } from '../middlewares/error.middleware.js';
 import { sendSuccess } from '../utils/apiResponse.js';
 import { generateAuditLogsPdf } from '../services/pdf.service.js';
+import { formatDatePlus3, formatTimePlus3 } from '../utils/dateTime.js';
 
 const buildAuditWhere = (params: any) => {
   const { user, action, date, fromDate, toDate, requestNumber, search } = params;
@@ -63,8 +64,8 @@ const formatAuditItem = (l: any) => {
     documentName: l.documentName || undefined,
     ipAddress: l.ipAddress || '127.0.0.1',
     userAgent: l.userAgent || undefined,
-    date: d.toISOString().split('T')[0],
-    time: d.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }),
+    date: formatDatePlus3(d),
+    time: formatTimePlus3(d),
     createdAt: l.createdAt.toISOString()
   };
 };

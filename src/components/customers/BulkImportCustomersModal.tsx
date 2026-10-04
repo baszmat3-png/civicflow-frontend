@@ -129,7 +129,7 @@ export const BulkImportCustomersModal: React.FC<BulkImportCustomersModalProps> =
       const result = await customerService.bulkImport(parsedRows);
       setImportResult(result);
 
-      if (result.successCount > 0) {
+      if (result && result.successCount > 0) {
         onSuccess();
       }
     } catch (err: any) {
