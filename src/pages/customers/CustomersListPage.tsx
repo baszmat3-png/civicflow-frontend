@@ -57,10 +57,11 @@ export const CustomersListPage: React.FC = () => {
     const q = search.toLowerCase().trim();
     return customers.filter(
       (c) =>
-        (c?.name || '').toLowerCase().includes(q) ||
-        (c?.phone || '').includes(q) ||
-        (c?.nationalId && c.nationalId.includes(q)) ||
-        (c?.address && c.address.toLowerCase().includes(q))
+        String(c?.name || '').toLowerCase().includes(q) ||
+        String(c?.phone || '').includes(q) ||
+        String(c?.customerNumber || '').toLowerCase().includes(q) ||
+        String(c?.nationalId || '').includes(q) ||
+        String(c?.address || '').toLowerCase().includes(q)
     );
   }, [customers, search]);
 

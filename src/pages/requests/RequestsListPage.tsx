@@ -179,14 +179,15 @@ export const RequestsListPage: React.FC = () => {
       const q = search.toLowerCase().trim();
       list = list.filter((r) =>
         Boolean(
-          (r.requestNumber && r.requestNumber.toLowerCase().includes(q)) ||
-          (r.customerNumber && r.customerNumber.toLowerCase().includes(q)) ||
-          (r.nationalId && r.nationalId.includes(q)) ||
-          (r.cityName && r.cityName.toLowerCase().includes(q)) ||
-          (r.customerName && r.customerName.toLowerCase().includes(q)) ||
-          (r.customerPhone && r.customerPhone.includes(q)) ||
-          (r.title && r.title.toLowerCase().includes(q)) ||
-          (r.ministryName && r.ministryName.toLowerCase().includes(q))
+          String(r.requestNumber || '').toLowerCase().includes(q) ||
+          String(r.customerNumber || '').toLowerCase().includes(q) ||
+          String(r.nationalId || '').includes(q) ||
+          String(r.cityName || '').toLowerCase().includes(q) ||
+          String(r.customerName || '').toLowerCase().includes(q) ||
+          String(r.customerPhone || '').includes(q) ||
+          String(r.title || '').toLowerCase().includes(q) ||
+          String(r.ministryName || '').toLowerCase().includes(q) ||
+          String(r.details || '').toLowerCase().includes(q)
         )
       );
     }
