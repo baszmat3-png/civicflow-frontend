@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useData } from '../../context/DataContext';
 import { usePermissions } from '../../hooks/usePermissions';
+import { Customer } from '../../types';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/StatusBadge';
@@ -20,42 +21,80 @@ import {
   ArrowRight,
   Flame,
   Mail,
-  Shield
+  Shield,
+  Loader2
 } from 'lucide-react';
+import { customerService } from '../../services/customerService';
 
 export const CustomerDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { customers, requests } = useData();
+  const { customers, requests, loading } = useData();
   const { canUpdateCustomer, canCreateRequest } = usePermissions();
 
-  const customer = customers.find((c) => c.id === id);
+  const [fetchedCustomer, setFetchedCustomer] = useState<Customer | null>(null);
+  const [isFetching, setIsFetching] = useState(false);
+
+  const customerFromContext = (customers || []).find((c) => c && c.id === id);
+  const customer = customerFromContext || fetchedCustomer;
+
+  React.useEffect(() => {
+    if (!customerFromContext && id && !isFetching) {
+      setIsFetching(true);
+      customerService
+        .getCustomerById(id)
+        .then((data) => {
+          if (data) setFetchedCustomer(data);
+        })
+        .catch((err) => {
+          console.error('Failed to fetch customer by ID:', err);
+        })
+        .finally(() => {
+          setIsFetching(false);
+        });
+    }
+  }, [id, customerFromContext]);
+
+  if (isFetching || (loading && !customer)) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 space-y-3">
+        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+        <p className="text-xs text-slate-500 font-bold">جاري تحميل بيانات المراجع...</p>
+      </div>
+    );
+  }
 
   if (!customer) {
     return (
-      <div className="text-center py-16">
-        <p className="text-slate-500 mb-4">المراجع غير موجود أو تم حذفه</p>
+      <div className="text-center py-16 space-y-4">
+        <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-400">
+          <User className="w-6 h-6" />
+        </div>
+        <div>
+          <h3 className="text-base font-bold text-slate-800">المراجع غير موجود أو تم حذفه</h3>
+          <p className="text-xs text-slate-500 mt-1">تعذر العثور على سجل المراجع المطلوب في قاعدة البيانات.</p>
+        </div>
         <Button variant="primary" onClick={() => navigate('/customers')}>
-          العودة للمراجعين
+          العودة لقائمة المراجعين
         </Button>
       </div>
     );
   }
 
   // Related requests
-  const customerRequests = requests.filter(
-    (r) => r.customerId === customer.id || r.customerPhone === customer.phone || r.customerName === customer.name
+  const customerRequests = (requests || []).filter(
+    (r) => r && (r.customerId === customer.id || r.customerPhone === customer.phone || r.customerName === customer.name)
   );
 
   const completedCount = customerRequests.filter(
-    (r) => r.status === 'تم التسليم' || r.status === 'مغلق' || r.status === 'الإجابة جاهزة'
+    (r) => r && (r.status === 'تم التسليم' || r.status === 'مغلق' || r.status === 'الإجابة جاهزة')
   ).length;
 
   const inProgressCount = customerRequests.filter(
-    (r) => r.status === 'قيد المعالجة' || r.status === 'قيد المراجعة' || r.status === 'تم إرسال الطلب للجهة'
+    (r) => r && (r.status === 'قيد المعالجة' || r.status === 'قيد المراجعة' || r.status === 'تم إرسال الطلب للجهة')
   ).length;
 
-  const overdueCount = customerRequests.filter((r) => r.deadlineStatus === 'متأخر').length;
+  const overdueCount = customerRequests.filter((r) => r && r.deadlineStatus === 'متأخر').length;
 
   return (
     <div className="space-y-6">

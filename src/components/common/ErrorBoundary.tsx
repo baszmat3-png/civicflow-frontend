@@ -54,10 +54,16 @@ export class ErrorBoundary extends Component<Props, State> {
               </p>
             </div>
 
-            {Boolean((import.meta as any).env?.DEV) && this.state.error && (
-              <div className="bg-slate-100 p-3 rounded-lg text-left text-xs font-mono text-red-600 overflow-x-auto max-h-32 border border-slate-200" dir="ltr">
-                {this.state.error.message}
-              </div>
+            {this.state.error && (
+              <details className="bg-slate-50 p-3 rounded-xl text-right text-xs border border-slate-200 cursor-pointer">
+                <summary className="font-bold text-slate-600 hover:text-slate-900 select-none">
+                  عرض تفاصيل الخطأ البرمجي
+                </summary>
+                <pre className="mt-2 p-2 bg-slate-900 text-rose-300 rounded-lg text-left text-[11px] font-mono overflow-x-auto max-h-40 whitespace-pre-wrap select-all" dir="ltr">
+                  {this.state.error.name}: {this.state.error.message}
+                  {this.state.error.stack ? `\n\n${this.state.error.stack}` : ''}
+                </pre>
+              </details>
             )}
 
             <div className="flex flex-col sm:flex-row gap-3 pt-2">
@@ -71,11 +77,17 @@ export class ErrorBoundary extends Component<Props, State> {
               </Button>
               <Button
                 variant="outline"
-                onClick={this.handleGoHome}
+                onClick={() => {
+                  try {
+                    localStorage.removeItem('civicflow_cache_customers');
+                    localStorage.removeItem('civicflow_cache_requests');
+                  } catch {}
+                  window.location.href = '/customers';
+                }}
                 className="w-full flex items-center justify-center gap-2 border-slate-200 text-slate-700 hover:bg-slate-50 font-medium py-2.5 rounded-xl transition-all"
               >
                 <Home className="w-4 h-4" />
-                الصفحة الرئيسية
+                تحديث قائمة المراجعين
               </Button>
             </div>
           </div>

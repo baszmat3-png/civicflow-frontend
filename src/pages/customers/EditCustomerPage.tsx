@@ -7,17 +7,22 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { cityService } from '../../services/cityService';
-import { City } from '../../types';
+import { customerService } from '../../services/customerService';
+import { City, Customer } from '../../types';
 import { ArrowRight, Save, User } from 'lucide-react';
 import { IRAQI_GOVERNORATES } from '../../constants/iraqGovernorates';
 
 export const EditCustomerPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { customers, handleUpdateCustomer } = useData();
+  const { customers, handleUpdateCustomer, loading } = useData();
   const { success, error, warning } = useToast();
 
-  const customer = customers.find((c) => c.id === id);
+  const [fetchedCustomer, setFetchedCustomer] = useState<Customer | null>(null);
+  const [isFetching, setIsFetching] = useState(false);
+
+  const customerFromContext = (customers || []).find((c) => c && c.id === id);
+  const customer = customerFromContext || fetchedCustomer;
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -39,6 +44,23 @@ export const EditCustomerPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (!customerFromContext && id && !isFetching) {
+      setIsFetching(true);
+      customerService
+        .getCustomerById(id)
+        .then((data) => {
+          if (data) setFetchedCustomer(data);
+        })
+        .catch((err) => {
+          console.error('Failed to fetch customer for edit:', err);
+        })
+        .finally(() => {
+          setIsFetching(false);
+        });
+    }
+  }, [id, customerFromContext]);
+
+  useEffect(() => {
     if (customer && initializedIdRef.current !== customer.id) {
       initializedIdRef.current = customer.id;
       setName(customer.name || '');
@@ -55,10 +77,19 @@ export const EditCustomerPage: React.FC = () => {
     }
   }, [customer]);
 
+  if (isFetching || (loading && !customer)) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 space-y-3">
+        <User className="w-8 h-8 text-blue-600 animate-pulse" />
+        <p className="text-xs text-slate-500 font-bold">جاري تحميل بيانات المراجع للتعديل...</p>
+      </div>
+    );
+  }
+
   if (!customer) {
     return (
-      <div className="text-center py-12">
-        <p className="text-slate-500 mb-4">المراجع غير موجود في النظام</p>
+      <div className="text-center py-12 space-y-4">
+        <p className="text-slate-500">المراجع غير موجود في النظام</p>
         <Button variant="primary" onClick={() => navigate('/customers')}>
           العودة لقائمة المراجعين
         </Button>
