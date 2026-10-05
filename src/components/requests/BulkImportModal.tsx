@@ -37,35 +37,65 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
 
   // Download Sample Template
   const handleDownloadTemplate = () => {
-    const data = [
-      {
-        'اسم_المراجع': 'علي حسين جاسم',
-        'رقم_الهاتف': '07701234567',
-        'الرقم_الوطني': '198812345678',
-        'المدينة': 'بغداد',
-        'عنوان_المراجع': 'الكرادة',
-        'الجهة_المعنية': 'وزارة العمل والشؤون الاجتماعية',
-        'نوع_المعاملة': 'صرف ماستر كارد معاق',
-        'عنوان_الطلب': 'طلب إصدار بطاقة ماستر كارد لذوي الإعاقة',
-        'التفاصيل': 'تفاصيل الطلب ومرفقات الحالة...'
-      },
-      {
-        'اسم_المراجع': 'سارة عمار كاظم',
-        'رقم_الهاتف': '07809876543',
-        'الرقم_الوطني': '199587654321',
-        'المدينة': 'البصرة',
-        'عنوان_المراجع': 'الجبيلة',
-        'الجهة_المعنية': 'وزارة التربية',
-        'نوع_المعاملة': 'طلب نقل مدرس',
-        'عنوان_الطلب': 'طلب نقل إلى مدرسة قريبة من السكن',
-        'التفاصيل': 'يرجى التفضل بالموافقة على نقل المعلمة...'
-      }
-    ];
+    try {
+      const data = [
+        {
+          'اسم_المراجع': 'علي حسين جاسم',
+          'رقم_الهاتف': '07701234567',
+          'الرقم_الوطني': '198812345678',
+          'المدينة': 'بغداد',
+          'عنوان_المراجع': 'الكرادة',
+          'الجهة_المعنية': 'وزارة العمل والشؤون الاجتماعية',
+          'نوع_المعاملة': 'صرف ماستر كارد معاق',
+          'عنوان_الطلب': 'طلب إصدار بطاقة ماستر كارد لذوي الإعاقة',
+          'التفاصيل': 'تفاصيل الطلب ومرفقات الحالة...'
+        },
+        {
+          'اسم_المراجع': 'سارة عمار كاظم',
+          'رقم_الهاتف': '07809876543',
+          'الرقم_الوطني': '199587654321',
+          'المدينة': 'البصرة',
+          'عنوان_المراجع': 'الجبيلة',
+          'الجهة_المعنية': 'وزارة التربية',
+          'نوع_المعاملة': 'طلب نقل مدرس',
+          'عنوان_الطلب': 'طلب نقل إلى مدرسة قريبة من السكن',
+          'التفاصيل': 'يرجى التفضل بالموافقة على نقل المعلمة...'
+        }
+      ];
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'المعاملات');
-    XLSX.writeFile(wb, 'قالب_استيراد_المعاملات_الجماعي.xlsx');
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'المعاملات');
+      
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'قالب_استيراد_المعاملات_الجماعي.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }, 1000);
+    } catch {
+      // Fallback to standard CSV if Excel Blob generation fails on older webviews
+      const headers = ['اسم_المراجع', 'رقم_الهاتف', 'الرقم_الوطني', 'المدينة', 'عنوان_المراجع', 'الجهة_المعنية', 'نوع_المعاملة', 'عنوان_الطلب', 'التفاصيل'];
+      const row1 = ['علي حسين جاسم', '07701234567', '198812345678', 'بغداد', 'الكرادة', 'وزارة العمل والشؤون الاجتماعية', 'صرف ماستر كارد معاق', 'طلب إصدار بطاقة ماستر كارد لذوي الإعاقة', 'تفاصيل الطلب ومرفقات الحالة...'];
+      const csvContent = '\uFEFF' + [headers.join(','), row1.join(',')].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'قالب_استيراد_المعاملات.csv';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }, 1000);
+    }
   };
 
   // Robust parsing using XLSX supporting .xlsx, .xls, .csv, .txt

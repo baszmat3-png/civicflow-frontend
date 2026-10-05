@@ -10,6 +10,7 @@ import {
 } from '../utils/token.js';
 import { AppError } from '../middlewares/error.middleware.js';
 import { sendSuccess } from '../utils/apiResponse.js';
+import { formatDateTimePlus3 } from '../utils/dateTime.js';
 import { env } from '../config/env.js';
 import { issueOtp, verifyOtp, normalizeEmail } from '../services/otp.service.js';
 
@@ -150,7 +151,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       department: user.department || '',
       status: user.status === 'ACTIVE' ? 'نشط' : 'غير نشط',
       emailVerified: user.emailVerified || false,
-      lastLogin: user.lastLogin ? user.lastLogin.toISOString().replace('T', ' ').substring(0, 16) : 'الآن',
+      lastLogin: user.lastLogin ? formatDateTimePlus3(user.lastLogin) : 'الآن',
       avatarUrl: user.avatarUrl || undefined,
       assignedRequestsCount: 0,
       permissions
@@ -265,7 +266,7 @@ export const refreshToken = async (req: Request, res: Response, next: NextFuncti
       department: user.department || '',
       status: user.status === 'ACTIVE' ? 'نشط' : 'غير نشط',
       emailVerified: user.emailVerified || false,
-      lastLogin: user.lastLogin ? user.lastLogin.toISOString().replace('T', ' ').substring(0, 16) : 'الآن',
+      lastLogin: user.lastLogin ? formatDateTimePlus3(user.lastLogin) : 'الآن',
       avatarUrl: user.avatarUrl || undefined,
       assignedRequestsCount: 0,
       permissions
@@ -344,7 +345,7 @@ export const getMe = async (req: Request, res: Response, next: NextFunction) => 
       department: user.department || '',
       status: user.status === 'ACTIVE' ? 'نشط' : 'غير نشط',
       emailVerified: user.emailVerified || false,
-      lastLogin: user.lastLogin ? user.lastLogin.toISOString().replace('T', ' ').substring(0, 16) : 'الآن',
+      lastLogin: user.lastLogin ? formatDateTimePlus3(user.lastLogin) : 'الآن',
       avatarUrl: user.avatarUrl || undefined,
       assignedRequestsCount: user.assignedRequests.length,
       permissions

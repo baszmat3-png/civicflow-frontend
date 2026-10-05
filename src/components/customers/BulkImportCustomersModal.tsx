@@ -35,33 +35,66 @@ export const BulkImportCustomersModal: React.FC<BulkImportCustomersModalProps> =
 
   if (!isOpen) return null;
 
-  // Download Sample Template (both CSV and Excel supported)
+  // Download Sample Template (both CSV and Excel supported with 100% mobile compatibility)
   const handleDownloadTemplate = () => {
-    const data = [
-      {
-        'اسم_المراجع': 'ظاهر نجم عبد',
-        'رقم_الهاتف': '07829352265',
-        'عنوان_السكن': 'الحسينية منطقة 4',
-        'رقم_الهوية': '198512345678'
-      },
-      {
-        'اسم_المراجع': 'رفاه نجاح عبد الامير',
-        'رقم_الهاتف': '07721318134',
-        'عنوان_السكن': 'العطيفية جامع براثا',
-        'رقم_الهوية': '199087654321'
-      },
-      {
-        'اسم_المراجع': 'الشيخ كريم فلاح الشيخ حسين',
-        'رقم_الهاتف': '07709046865',
-        'عنوان_السكن': 'قضاء الصادق',
-        'رقم_الهوية': '197855443322'
-      }
-    ];
+    try {
+      const data = [
+        {
+          'اسم_المراجع': 'ظاهر نجم عبد',
+          'رقم_الهاتف': '07829352265',
+          'عنوان_السكن': 'الحسينية منطقة 4',
+          'رقم_الهوية': '198512345678'
+        },
+        {
+          'اسم_المراجع': 'رفاه نجاح عبد الامير',
+          'رقم_الهاتف': '07721318134',
+          'عنوان_السكن': 'العطيفية جامع براثا',
+          'رقم_الهوية': '199087654321'
+        },
+        {
+          'اسم_المراجع': 'الشيخ كريم فلاح الشيخ حسين',
+          'رقم_الهاتف': '07709046865',
+          'عنوان_السكن': 'قضاء الصادق',
+          'رقم_الهوية': '197855443322'
+        }
+      ];
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'المراجعين');
-    XLSX.writeFile(wb, 'قالب_استيراد_المراجعين.xlsx');
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'المراجعين');
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([wbout], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'قالب_استيراد_المراجعين.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 200);
+    } catch (err) {
+      // Direct CSV Fallback
+      const headers = 'اسم_المراجع,رقم_الهاتف,عنوان_السكن,رقم_الهوية';
+      const sample1 = '"ظاهر نجم عبد","07829352265","الحسينية منطقة 4","198512345678"';
+      const sample2 = '"رفاه نجاح عبد الامير","07721318134","العطيفية جامع براثا","199087654321"';
+      const sample3 = '"الشيخ كريم فلاح الشيخ حسين","07709046865","قضاء الصادق","197855443322"';
+      const csv = '\uFEFF' + [headers, sample1, sample2, sample3].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'قالب_استيراد_المراجعين.csv';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 200);
+    }
   };
 
   // Robust parsing using XLSX supporting .xlsx, .xls, .csv, .txt

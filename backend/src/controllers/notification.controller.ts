@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../config/database.js';
 import { AppError } from '../middlewares/error.middleware.js';
 import { sendSuccess } from '../utils/apiResponse.js';
+import { formatDateTimePlus3, formatDatePlus3 } from '../utils/dateTime.js';
 
 const createNotificationSchema = z.object({
   title: z.string().min(2, 'عنوان الإشعار مطلوب'),
@@ -14,8 +15,9 @@ const createNotificationSchema = z.object({
   link: z.string().optional().nullable()
 });
 
-const calculateTimeAgo = (date: Date): string => {
-  const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+const calculateTimeAgo = (date: Date | string): string => {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const seconds = Math.floor((new Date().getTime() - d.getTime()) / 1000);
   if (seconds < 60) return 'الآن';
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `منذ ${minutes} دقيقة`;
@@ -23,7 +25,7 @@ const calculateTimeAgo = (date: Date): string => {
   if (hours < 24) return `منذ ${hours} ساعة`;
   const days = Math.floor(hours / 24);
   if (days < 30) return `منذ ${days} يوم`;
-  return date.toISOString().split('T')[0];
+  return formatDatePlus3(d);
 };
 
 export const getNotifications = async (req: Request, res: Response, next: NextFunction) => {
@@ -42,8 +44,6 @@ export const getNotifications = async (req: Request, res: Response, next: NextFu
     });
 
     const notifications = rawNotifications.map((n) => {
-      const d = new Date(n.createdAt);
-      const dateStr = `${d.toISOString().split('T')[0]} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
       return {
         id: n.id,
         title: n.title,
@@ -52,8 +52,8 @@ export const getNotifications = async (req: Request, res: Response, next: NextFu
         requestNumber: n.requestNumber || undefined,
         type: n.type,
         read: n.read,
-        createdAt: dateStr,
-        timeAgo: calculateTimeAgo(d),
+        createdAt: formatDateTimePlus3(n.createdAt),
+        timeAgo: calculateTimeAgo(n.createdAt),
         link: n.link || (n.requestId ? `/requests/${n.requestId}` : undefined)
       };
     });
