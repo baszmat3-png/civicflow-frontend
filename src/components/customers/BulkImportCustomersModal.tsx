@@ -172,6 +172,14 @@ export const BulkImportCustomersModal: React.FC<BulkImportCustomersModalProps> =
     }
   };
 
+  const [progress, setProgress] = useState<{
+    current: number;
+    total: number;
+    percent: number;
+    currentBatch: number;
+    totalBatches: number;
+  } | null>(null);
+
   const handleExecuteImport = async () => {
     if (parsedRows.length === 0) {
       setErrorMsg('يرجى اختيار ملف يحتوي على بيانات صالحة أولاً');
@@ -181,15 +189,65 @@ export const BulkImportCustomersModal: React.FC<BulkImportCustomersModalProps> =
     try {
       setImporting(true);
       setErrorMsg('');
+      setImportResult(null);
 
-      const result = await customerService.bulkImport(parsedRows);
-      setImportResult(result);
+      const BATCH_SIZE = 50;
+      const totalRows = parsedRows.length;
+      const totalBatches = Math.ceil(totalRows / BATCH_SIZE);
 
-      if (result && result.successCount > 0) {
-        onSuccess();
+      let accumulatedSuccess = 0;
+      let accumulatedFail = 0;
+      const accumulatedErrors: string[] = [];
+
+      for (let b = 0; b < totalBatches; b++) {
+        const batchStart = b * BATCH_SIZE;
+        const batchEnd = Math.min(batchStart + BATCH_SIZE, totalRows);
+        const batchRows = parsedRows.slice(batchStart, batchEnd);
+
+        setProgress({
+          current: batchEnd,
+          total: totalRows,
+          percent: Math.round((batchEnd / totalRows) * 100),
+          currentBatch: b + 1,
+          totalBatches
+        });
+
+        try {
+          const result = await customerService.bulkImport(batchRows);
+          if (result) {
+            accumulatedSuccess += result.successCount || 0;
+            accumulatedFail += result.failCount || 0;
+            if (Array.isArray(result.errors)) {
+              accumulatedErrors.push(...result.errors);
+            }
+          }
+        } catch (batchErr: any) {
+          console.error(`Error importing batch ${b + 1}:`, batchErr);
+          accumulatedFail += batchRows.length;
+          accumulatedErrors.push(`الدفعة ${b + 1}: ${batchErr?.message || 'تعذر استيراد هذه الدفعة'}`);
+        }
+      }
+
+      const finalResult = {
+        successCount: accumulatedSuccess,
+        failCount: accumulatedFail,
+        errors: accumulatedErrors
+      };
+
+      setImportResult(finalResult);
+      setProgress(null);
+
+      if (accumulatedSuccess > 0) {
+        try {
+          onSuccess();
+        } catch (succErr) {
+          console.error('onSuccess callback error:', succErr);
+        }
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'فشل استيراد المراجعين');
+      console.error('Import execution error:', err);
+      setErrorMsg(err?.message || 'فشل استيراد المراجعين، يرجى المحاولة مرة أخرى');
+      setProgress(null);
     } finally {
       setImporting(false);
     }
@@ -197,7 +255,7 @@ export const BulkImportCustomersModal: React.FC<BulkImportCustomersModalProps> =
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" dir="rtl">
-      <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-6 relative border border-slate-100 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-6 relative border border-slate-100 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
         <button
           onClick={onClose}
           className="absolute top-4 left-4 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -248,6 +306,25 @@ export const BulkImportCustomersModal: React.FC<BulkImportCustomersModalProps> =
           </div>
         )}
 
+        {/* Live Batch Import Progress */}
+        {progress && (
+          <div className="p-4 bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-2xl space-y-2">
+            <div className="flex items-center justify-between text-xs font-bold text-blue-900 dark:text-blue-200">
+              <span>جاري استيراد الدفعة {progress.currentBatch} من {progress.totalBatches}...</span>
+              <span className="font-mono">{progress.current} / {progress.total} ({progress.percent}%)</span>
+            </div>
+            <div className="w-full bg-blue-200 dark:bg-blue-900 rounded-full h-2.5 overflow-hidden">
+              <div
+                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                style={{ width: `${progress.percent}%` }}
+              />
+            </div>
+            <p className="text-[11px] text-blue-700 dark:text-blue-300">
+              يتم حفظ السجلات في قواعد البيانات بسرعة وأمان، يرجى الانتظار لحين اكتمال الرفع...
+            </p>
+          </div>
+        )}
+
         {importResult && (
           <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-900 text-xs space-y-2">
             <div className="flex items-center gap-2 font-bold">
@@ -258,7 +335,17 @@ export const BulkImportCustomersModal: React.FC<BulkImportCustomersModalProps> =
             </div>
             {importResult.failCount > 0 && (
               <div className="text-rose-700 text-[11px] pt-2 border-t border-emerald-200">
-                فشل استيراد {importResult.failCount} صف.
+                فشل استيراد {importResult.failCount} صف بسبب أخطاء في البيانات.
+                {importResult.errors.length > 0 && (
+                  <ul className="list-disc list-inside mt-1 max-h-24 overflow-y-auto font-mono text-[10px] space-y-0.5">
+                    {importResult.errors.slice(0, 10).map((err, i) => (
+                      <li key={i}>{err}</li>
+                    ))}
+                    {importResult.errors.length > 10 && (
+                      <li>...و {importResult.errors.length - 10} أخطاء أخرى</li>
+                    )}
+                  </ul>
+                )}
               </div>
             )}
           </div>
@@ -304,13 +391,13 @@ export const BulkImportCustomersModal: React.FC<BulkImportCustomersModalProps> =
                 variant="primary"
                 className="w-full font-bold"
                 onClick={handleExecuteImport}
-                disabled={parsedRows.length === 0}
+                disabled={parsedRows.length === 0 || importing}
                 isLoading={importing}
                 icon={<Upload className="w-4 h-4" />}
               >
                 بدء استيراد المراجعين ({parsedRows.length})
               </Button>
-              <Button type="button" variant="outline" onClick={onClose}>
+              <Button type="button" variant="outline" onClick={onClose} disabled={importing}>
                 إلغاء
               </Button>
             </>

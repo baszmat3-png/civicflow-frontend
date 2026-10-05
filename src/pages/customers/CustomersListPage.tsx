@@ -53,19 +53,20 @@ export const CustomersListPage: React.FC = () => {
 
   const filteredCustomers = useMemo(() => {
     if (!Array.isArray(customers)) return [];
-    if (!search.trim()) return customers;
+    if (!search.trim()) return customers.filter(Boolean);
     const q = search.toLowerCase().trim();
     return customers.filter(
       (c) =>
-        String(c?.name || '').toLowerCase().includes(q) ||
-        String(c?.phone || '').includes(q) ||
-        String(c?.customerNumber || '').toLowerCase().includes(q) ||
-        String(c?.nationalId || '').includes(q) ||
-        String(c?.address || '').toLowerCase().includes(q)
+        c &&
+        (String(c.name || '').toLowerCase().includes(q) ||
+          String(c.phone || '').includes(q) ||
+          String(c.customerNumber || '').toLowerCase().includes(q) ||
+          String(c.nationalId || '').includes(q) ||
+          String(c.address || '').toLowerCase().includes(q))
     );
   }, [customers, search]);
 
-  const totalPages = Math.ceil(filteredCustomers.length / pageSize);
+  const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / pageSize));
   const paginatedCustomers = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filteredCustomers.slice(start, start + pageSize);
@@ -73,20 +74,21 @@ export const CustomersListPage: React.FC = () => {
 
   // Bulk Selection Helpers
   const isAllPageSelected =
-    paginatedCustomers.length > 0 && paginatedCustomers.every((c) => selectedIds.includes(c.id));
+    paginatedCustomers.length > 0 && paginatedCustomers.every((c) => c && selectedIds.includes(c.id));
 
   const toggleSelectAllPage = () => {
     if (isAllPageSelected) {
-      const pageIds = new Set(paginatedCustomers.map((c) => c.id));
+      const pageIds = new Set(paginatedCustomers.filter(Boolean).map((c) => c.id));
       setSelectedIds((prev) => prev.filter((id) => !pageIds.has(id)));
     } else {
-      const pageIds = paginatedCustomers.map((c) => c.id);
+      const pageIds = paginatedCustomers.filter(Boolean).map((c) => c.id);
       setSelectedIds((prev) => Array.from(new Set([...prev, ...pageIds])));
     }
   };
 
   const toggleSelectRow = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!id) return;
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
@@ -94,16 +96,18 @@ export const CustomersListPage: React.FC = () => {
 
   // Build recipients for bulk WhatsApp modal
   const selectedRecipients = useMemo(() => {
+    if (!Array.isArray(customers) || !Array.isArray(selectedIds)) return [];
     return selectedIds
       .map((id) => {
         const cust = customers.find((c) => c && c.id === id);
         if (!cust) return null;
-        const custReq = requests.find((r) => r && r.customerId === cust.id);
+        const custReq = Array.isArray(requests) ? requests.find((r) => r && r.customerId === cust.id) : undefined;
+        const safeId = String(cust.id || '');
         return {
-          id: cust.id,
+          id: safeId,
           phoneNumber: cust.phone || '',
           customerName: cust.name || '',
-          requestNumber: custReq?.requestNumber || cust.customerNumber || `CUST-${cust.id.substring(0, 5)}`,
+          requestNumber: custReq?.requestNumber || cust.customerNumber || `CUST-${safeId.substring(0, 5)}`,
           ministry: custReq?.ministryName || 'الجهة الحكومية',
           title: custReq?.title || 'معاملة المراجع',
           requestId: custReq?.id
@@ -301,10 +305,12 @@ export const CustomersListPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {paginatedCustomers.map((cust) => {
+                  if (!cust) return null;
                   const isSelected = selectedIds.includes(cust.id);
-                  const actualCustRequests = requests.filter((r) => r && r.customerId === cust.id);
+                  const actualCustRequests = Array.isArray(requests) ? requests.filter((r) => r && r.customerId === cust.id) : [];
                   const custReqCount = actualCustRequests.length || cust.requestsCount || 0;
                   const latestReqDate = actualCustRequests[0]?.receiveDate || cust.lastRequestDate || '---';
+                  const initialLetter = (String(cust.name || 'م').trim() || 'م')[0];
 
                   return (
                     <tr
@@ -328,7 +334,7 @@ export const CustomersListPage: React.FC = () => {
                       <td className="py-3.5 px-4 font-bold text-slate-900">
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-[11px] group-hover:bg-blue-600 group-hover:text-white transition">
-                            {(cust.name || 'م')[0]}
+                            {initialLetter}
                           </div>
                           <span>{cust.name || 'مراجع'}</span>
                         </div>

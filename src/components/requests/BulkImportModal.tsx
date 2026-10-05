@@ -186,18 +186,78 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
     }
   };
 
+  const [progress, setProgress] = useState<{
+    current: number;
+    total: number;
+    percent: number;
+    currentBatch: number;
+    totalBatches: number;
+  } | null>(null);
+
   const handleExecuteImport = async () => {
     if (parsedRows.length === 0) return;
     try {
       setImporting(true);
       setErrorMsg('');
-      const res = await requestService.bulkImport(parsedRows);
-      setImportResult(res);
-      if (res && res.successCount > 0) {
-        onSuccess();
+      setImportResult(null);
+
+      const BATCH_SIZE = 50;
+      const totalRows = parsedRows.length;
+      const totalBatches = Math.ceil(totalRows / BATCH_SIZE);
+
+      let accumulatedSuccess = 0;
+      let accumulatedFail = 0;
+      const accumulatedErrors: string[] = [];
+
+      for (let b = 0; b < totalBatches; b++) {
+        const batchStart = b * BATCH_SIZE;
+        const batchEnd = Math.min(batchStart + BATCH_SIZE, totalRows);
+        const batchRows = parsedRows.slice(batchStart, batchEnd);
+
+        setProgress({
+          current: batchEnd,
+          total: totalRows,
+          percent: Math.round((batchEnd / totalRows) * 100),
+          currentBatch: b + 1,
+          totalBatches
+        });
+
+        try {
+          const res = await requestService.bulkImport(batchRows);
+          if (res) {
+            accumulatedSuccess += res.successCount || 0;
+            accumulatedFail += res.failCount || 0;
+            if (Array.isArray(res.errors)) {
+              accumulatedErrors.push(...res.errors);
+            }
+          }
+        } catch (batchErr: any) {
+          console.error(`Error importing request batch ${b + 1}:`, batchErr);
+          accumulatedFail += batchRows.length;
+          accumulatedErrors.push(`الدفعة ${b + 1}: ${batchErr?.message || 'تعذر استيراد هذه الدفعة'}`);
+        }
+      }
+
+      const finalResult = {
+        successCount: accumulatedSuccess,
+        failCount: accumulatedFail,
+        errors: accumulatedErrors
+      };
+
+      setImportResult(finalResult);
+      setProgress(null);
+
+      if (accumulatedSuccess > 0) {
+        try {
+          onSuccess();
+        } catch (succErr) {
+          console.error('onSuccess callback error:', succErr);
+        }
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'حدث خطأ أثناء تنفيذ عملية الاستيراد');
+      console.error('Request bulk import error:', err);
+      setErrorMsg(err?.message || 'حدث خطأ أثناء تنفيذ عملية الاستيراد');
+      setProgress(null);
     } finally {
       setImporting(false);
     }
@@ -231,6 +291,25 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
           <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 flex-shrink-0" />
             <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {/* Live Batch Import Progress */}
+        {progress && (
+          <div className="p-4 bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl space-y-2">
+            <div className="flex items-center justify-between text-xs font-bold text-emerald-900 dark:text-emerald-200">
+              <span>جاري استيراد الدفعة {progress.currentBatch} من {progress.totalBatches}...</span>
+              <span className="font-mono">{progress.current} / {progress.total} ({progress.percent}%)</span>
+            </div>
+            <div className="w-full bg-emerald-200 dark:bg-emerald-900 rounded-full h-2.5 overflow-hidden">
+              <div
+                className="bg-emerald-600 h-2.5 rounded-full transition-all duration-300"
+                style={{ width: `${progress.percent}%` }}
+              />
+            </div>
+            <p className="text-[11px] text-emerald-700 dark:text-emerald-300">
+              يتم حفظ المعاملات وسجلات المواطنين، يرجى الانتظار...
+            </p>
           </div>
         )}
 

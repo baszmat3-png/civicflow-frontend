@@ -516,51 +516,126 @@ export const bulkImportCustomers = async (req: Request, res: Response, next: Nex
     let failCount = 0;
     const errors: string[] = [];
 
+    // 1. Sanitize and validate input rows
+    const validRows: Array<{
+      index: number;
+      name: string;
+      phone: string;
+      address: string;
+      nationalId: string | null;
+    }> = [];
+
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      try {
-        const name = (row.name || row.customerName || '').trim();
-        const phone = (row.phone || row.customerPhone || '').trim();
-        const address = (row.address || '').trim();
-        const nationalId = (row.nationalId || '').trim() || null;
+      if (!row || typeof row !== 'object') continue;
+      const name = String(row.name || row.customerName || '').trim();
+      const rawPhone = String(row.phone || row.customerPhone || '').trim();
+      const phone = rawPhone.replace(/\s+/g, '');
+      const address = String(row.address || '').trim();
+      const rawNid = String(row.nationalId || '').trim();
+      const nationalId = rawNid && rawNid !== 'undefined' && rawNid !== 'null' ? rawNid : null;
 
-        if (!name || !phone) {
-          failCount++;
-          errors.push(`صف ${i + 1}: اسم المراجع ورقم الهاتف مطلوبان`);
-          continue;
+      if (!name || !phone) {
+        failCount++;
+        errors.push(`صف ${i + 1}: اسم المراجع ورقم الهاتف مطلوبان`);
+        continue;
+      }
+
+      validRows.push({ index: i + 1, name, phone, address, nationalId });
+    }
+
+    if (validRows.length === 0) {
+      return sendSuccess(res, { successCount: 0, failCount, errors }, 'لم يتم العثور على صفوف صالحة للاستيراد');
+    }
+
+    // 2. Fetch existing customers matching any incoming phone numbers in a single query
+    const phones = validRows.map((r) => r.phone);
+    const existingCustomers = await prisma.customer.findMany({
+      where: { phone: { in: phones } },
+      select: { id: true, phone: true, address: true, nationalId: true }
+    });
+    const existingPhoneMap = new Map<string, typeof existingCustomers[0]>();
+    existingCustomers.forEach((c) => existingPhoneMap.set(c.phone, c));
+
+    // 3. Fetch existing national IDs to prevent unique constraint clashes
+    const nationalIds = validRows.map((r) => r.nationalId).filter((nid): nid is string => Boolean(nid));
+    const existingNidSet = new Set<string>();
+    if (nationalIds.length > 0) {
+      const foundNids = await prisma.customer.findMany({
+        where: { nationalId: { in: nationalIds } },
+        select: { nationalId: true }
+      });
+      foundNids.forEach((n) => {
+        if (n.nationalId) existingNidSet.add(n.nationalId);
+      });
+    }
+
+    // 4. Calculate starting sequence number for customer numbering
+    const totalCount = await prisma.customer.count();
+    const lastCustomer = await prisma.customer.findFirst({
+      where: { customerNumber: { startsWith: 'CUST-' } },
+      orderBy: { createdAt: 'desc' },
+      select: { customerNumber: true }
+    });
+
+    let currentSeq = totalCount + 1000;
+    if (lastCustomer?.customerNumber) {
+      const match = lastCustomer.customerNumber.match(/CUST-(\d+)/);
+      if (match && match[1]) {
+        const parsed = parseInt(match[1], 10);
+        if (!isNaN(parsed) && parsed >= currentSeq) {
+          currentSeq = parsed;
         }
+      }
+    }
 
-        // Check if customer already exists by phone
-        let existing = await prisma.customer.findFirst({
-          where: { phone }
-        });
+    // 5. Fast sequential insertion / update with conflict safety
+    for (const item of validRows) {
+      try {
+        const existing = existingPhoneMap.get(item.phone);
 
         if (existing) {
+          let safeNid: string | null = null;
+          if (item.nationalId && !existing.nationalId && !existingNidSet.has(item.nationalId)) {
+            safeNid = item.nationalId;
+            existingNidSet.add(item.nationalId);
+          }
+
           await prisma.customer.update({
             where: { id: existing.id },
             data: {
-              ...(address && !existing.address ? { address } : {}),
-              ...(nationalId && !existing.nationalId ? { nationalId } : {})
+              ...(item.address && !existing.address ? { address: item.address } : {}),
+              ...(safeNid ? { nationalId: safeNid } : {})
             }
           });
           successCount++;
         } else {
-          const customerNumber = await generateNextCustomerNumber();
-          await prisma.customer.create({
+          currentSeq++;
+          let candidateCustNum = `CUST-${currentSeq}`;
+
+          let safeNid: string | null = null;
+          if (item.nationalId && !existingNidSet.has(item.nationalId)) {
+            safeNid = item.nationalId;
+            existingNidSet.add(item.nationalId);
+          }
+
+          const created = await prisma.customer.create({
             data: {
-              customerNumber,
-              name,
-              phone,
-              address: address || 'العراق',
-              nationalId,
+              customerNumber: candidateCustNum,
+              name: item.name,
+              phone: item.phone,
+              address: item.address || 'العراق',
+              nationalId: safeNid,
               status: CustomerStatus.ACTIVE
             }
           });
+
+          existingPhoneMap.set(item.phone, created);
           successCount++;
         }
       } catch (err: any) {
         failCount++;
-        errors.push(`صف ${i + 1}: ${err.message}`);
+        errors.push(`صف ${item.index}: ${err.message || 'فشل حفظ سجل المراجع'}`);
       }
     }
 
