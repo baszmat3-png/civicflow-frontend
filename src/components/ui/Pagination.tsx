@@ -19,11 +19,6 @@ export const Pagination: React.FC<PaginationProps> = ({
   const activeBtnRef = useRef<HTMLButtonElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  if (totalPages <= 1) return null;
-
-  const startItem = (currentPage - 1) * pageSize + 1;
-  const endItem = Math.min(currentPage * pageSize, totalItems);
-
   // Auto-scroll the active page into view on mobile
   useEffect(() => {
     if (activeBtnRef.current && scrollContainerRef.current) {
@@ -33,6 +28,11 @@ export const Pagination: React.FC<PaginationProps> = ({
       container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
     }
   }, [currentPage]);
+
+  if (totalPages <= 1) return null;
+
+  const startItem = (currentPage - 1) * pageSize + 1;
+  const endItem = Math.min(currentPage * pageSize, totalItems);
 
   // Generate page numbers
   const pages = Array.from({ length: totalPages }, (_, i) => i + 1);

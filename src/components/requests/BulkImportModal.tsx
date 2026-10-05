@@ -32,6 +32,13 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
     failCount: number;
     errors: string[];
   } | null>(null);
+  const [progress, setProgress] = useState<{
+    current: number;
+    total: number;
+    percent: number;
+    currentBatch: number;
+    totalBatches: number;
+  } | null>(null);
 
   if (!isOpen) return null;
 
@@ -185,14 +192,6 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
       setErrorMsg('فشل قراءة ملف الـ Excel أو CSV، يرجى التأكد من اختيار ملف صالح.');
     }
   };
-
-  const [progress, setProgress] = useState<{
-    current: number;
-    total: number;
-    percent: number;
-    currentBatch: number;
-    totalBatches: number;
-  } | null>(null);
 
   const handleExecuteImport = async () => {
     if (parsedRows.length === 0) return;
