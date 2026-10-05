@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import * as XLSX from 'xlsx';
 import { Button } from '../ui/Button';
 import {
   Upload,
@@ -34,26 +35,37 @@ export const BulkImportCustomersModal: React.FC<BulkImportCustomersModalProps> =
 
   if (!isOpen) return null;
 
-  // Download Sample Template CSV
+  // Download Sample Template (both CSV and Excel supported)
   const handleDownloadTemplate = () => {
-    const headers = 'اسم_المراجع,رقم_الهاتف,عنوان_السكن,رقم_الهوية';
-    const sample1 = '"ظاهر نجم عبد","07829352265","الحسينية منطقة 4","198512345678"';
-    const sample2 = '"رفاه نجاح عبد الامير","07721318134","العطيفية جامع براثا","199087654321"';
-    const sample3 = '"الشيخ كريم فلاح الشيخ حسين","07709046865","قضاء الصادق","197855443322"';
+    const data = [
+      {
+        'اسم_المراجع': 'ظاهر نجم عبد',
+        'رقم_الهاتف': '07829352265',
+        'عنوان_السكن': 'الحسينية منطقة 4',
+        'رقم_الهوية': '198512345678'
+      },
+      {
+        'اسم_المراجع': 'رفاه نجاح عبد الامير',
+        'رقم_الهاتف': '07721318134',
+        'عنوان_السكن': 'العطيفية جامع براثا',
+        'رقم_الهوية': '199087654321'
+      },
+      {
+        'اسم_المراجع': 'الشيخ كريم فلاح الشيخ حسين',
+        'رقم_الهاتف': '07709046865',
+        'عنوان_السكن': 'قضاء الصادق',
+        'رقم_الهوية': '197855443322'
+      }
+    ];
 
-    const csv = '\uFEFF' + [headers, sample1, sample2, sample3].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'قالب_استيراد_المراجعين.csv';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'المراجعين');
+    XLSX.writeFile(wb, 'قالب_استيراد_المراجعين.xlsx');
   };
 
-  // Parse CSV File
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Robust parsing using XLSX supporting .xlsx, .xls, .csv, .txt
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setErrorMsg('');
     setImportResult(null);
     if (!e.target.files || !e.target.files[0]) return;
@@ -61,59 +73,70 @@ export const BulkImportCustomersModal: React.FC<BulkImportCustomersModalProps> =
     const selectedFile = e.target.files[0];
     setFile(selectedFile);
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const text = event.target?.result as string;
-        const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
-        if (lines.length < 2) {
-          setErrorMsg('الملف فارغ أو لا يحتوي على صفوف بيانات');
-          return;
-        }
-
-        const parseCSVLine = (line: string) => {
-          const values: string[] = [];
-          let current = '';
-          let inQuote = false;
-          for (let i = 0; i < line.length; i++) {
-            const char = line[i];
-            if (char === '"') {
-              inQuote = !inQuote;
-            } else if (char === ',' && !inQuote) {
-              values.push(current.trim());
-              current = '';
-            } else {
-              current += char;
-            }
-          }
-          values.push(current.trim());
-          return values.map((v) => v.replace(/^"|"$/g, ''));
-        };
-
-        const rows: any[] = [];
-        for (let i = 1; i < lines.length; i++) {
-          const cols = parseCSVLine(lines[i]);
-          if (cols.length >= 2 && cols[0]) {
-            rows.push({
-              name: cols[0],
-              phone: cols[1],
-              address: cols[2] || '',
-              nationalId: cols[3] || undefined
-            });
-          }
-        }
-
-        if (rows.length === 0) {
-          setErrorMsg('لم يتم العثور على سجلات صالحة في الملف، تأكد من مطابقة الأعمدة للقالب.');
-          return;
-        }
-
-        setParsedRows(rows);
-      } catch (parseErr: any) {
-        setErrorMsg('فشل قراءة الملف، يرجى التأكد من اختيار ملف CSV أو Excel سليم.');
+    try {
+      const buffer = await selectedFile.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      if (!firstSheetName) {
+        setErrorMsg('الملف لا يحتوي على أي صفحات بيانات صالحة.');
+        return;
       }
-    };
-    reader.readAsText(selectedFile, 'UTF-8');
+
+      const worksheet = workbook.Sheets[firstSheetName];
+      const rawData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+      if (!rawData || rawData.length < 2) {
+        setErrorMsg('الملف فارغ أو لا يحتوي على صفوف بيانات كافية (يجب أن يحتوي على صف عناوين وبيانات).');
+        return;
+      }
+
+      const headers = (rawData[0] || []).map((h) => String(h || '').trim().toLowerCase());
+
+      // Helper to find column index by matching aliases
+      const findColIdx = (aliases: string[], fallbackIdx: number) => {
+        const found = headers.findIndex((h) => aliases.some((a) => h.includes(a.toLowerCase())));
+        return found !== -1 ? found : fallbackIdx;
+      };
+
+      const nameIdx = findColIdx(['اسم_المراجع', 'اسم المراجع', 'الاسم', 'اسم', 'مراجع', 'name', 'customer'], 0);
+      const phoneIdx = findColIdx(['رقم_الهاتف', 'رقم الهاتف', 'الهاتف', 'الموبايل', 'هاتف', 'phone', 'mobile'], 1);
+      const addrIdx = findColIdx(['عنوان_السكن', 'عنوان السكن', 'العنوان', 'السكن', 'المنطقة', 'address'], 2);
+      const nidIdx = findColIdx(['رقم_الهوية', 'رقم الهوية', 'الرقم الوطني', 'الهوية الوطنية', 'الرقم_الوطني', 'nationalid', 'id'], 3);
+
+      const rows: any[] = [];
+      for (let i = 1; i < rawData.length; i++) {
+        const row = rawData[i];
+        if (!row || !Array.isArray(row)) continue;
+
+        const name = String(row[nameIdx] !== undefined ? row[nameIdx] : '').trim();
+        const rawPhone = String(row[phoneIdx] !== undefined ? row[phoneIdx] : '').trim();
+        const phone = rawPhone.replace(/\s+/g, '');
+        const address = String(row[addrIdx] !== undefined ? row[addrIdx] : '').trim();
+        const nationalId = String(row[nidIdx] !== undefined ? row[nidIdx] : '').trim();
+
+        // Skip completely empty rows
+        if (!name && !phone) continue;
+
+        if (name && phone) {
+          rows.push({
+            name,
+            phone,
+            address: address || '',
+            nationalId: nationalId || undefined
+          });
+        }
+      }
+
+      if (rows.length === 0) {
+        setErrorMsg('لم يتم العثور على سجلات صالحة في الملف، تأكد من وجود عمودي الاسم ورقم الهاتف.');
+        return;
+      }
+
+      setParsedRows(rows);
+    } catch (parseErr: any) {
+      console.error('Error parsing file:', parseErr);
+      setErrorMsg('فشل قراءة الملف، يرجى التأكد من اختيار ملف Excel أو CSV صالح.');
+    }
   };
 
   const handleExecuteImport = async () => {
@@ -216,16 +239,16 @@ export const BulkImportCustomersModal: React.FC<BulkImportCustomersModalProps> =
                 type="file"
                 id="customers-bulk-file-input"
                 className="hidden"
-                accept=".csv,.txt,.xlsx,.xls"
+                accept=".xlsx,.xls,.csv,.txt"
                 onChange={handleFileChange}
               />
               <label htmlFor="customers-bulk-file-input" className="cursor-pointer block space-y-2">
                 <FileSpreadsheet className="w-8 h-8 text-blue-600 mx-auto" />
                 <div className="text-xs font-bold text-slate-800 dark:text-white">
-                  {file ? file.name : 'اضغط لاختيار أو سحب ملف المراجعين (CSV / Excel)'}
+                  {file ? file.name : 'اضغط لاختيار أو سحب ملف المراجعين (Excel / CSV)'}
                 </div>
                 <div className="text-[10px] text-slate-400 font-mono">
-                  {file ? `${(file.size / 1024).toFixed(1)} KB` : 'ملفات CSV أو نصية حتى 10 ميجابايت'}
+                  {file ? `${(file.size / 1024).toFixed(1)} KB` : 'ملفات Excel (.xlsx, .xls) أو CSV حتى 20 ميجابايت'}
                 </div>
               </label>
             </div>

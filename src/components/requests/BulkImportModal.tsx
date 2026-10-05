@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import * as XLSX from 'xlsx';
 import { Button } from '../ui/Button';
 import {
   Upload,
@@ -34,25 +35,41 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Download Sample Template CSV
+  // Download Sample Template
   const handleDownloadTemplate = () => {
-    const headers = 'اسم_المراجع,رقم_الهاتف,الرقم_الوطني,المدينة,عنوان_المراجع,الجهة_المعنية,نوع_المعاملة,عنوان_الطلب,التفاصيل';
-    const sample1 = '"علي حسين جاسم","07701234567","198812345678","بغداد","الكرادة","وزارة العمل والشؤون الاجتماعية","صرف ماستر كارد معاق","طلب إصدار بطاقة ماستر كارد لذوي الإعاقة","تفاصيل الطلب ومرفقات الحالة..."';
-    const sample2 = '"سارة عمار كاظم","07809876543","199587654321","البصرة","الجبيلة","وزارة التربية","طلب نقل مدرس","طلب نقل إلى مدرسة قريبة من السكن","..."';
+    const data = [
+      {
+        'اسم_المراجع': 'علي حسين جاسم',
+        'رقم_الهاتف': '07701234567',
+        'الرقم_الوطني': '198812345678',
+        'المدينة': 'بغداد',
+        'عنوان_المراجع': 'الكرادة',
+        'الجهة_المعنية': 'وزارة العمل والشؤون الاجتماعية',
+        'نوع_المعاملة': 'صرف ماستر كارد معاق',
+        'عنوان_الطلب': 'طلب إصدار بطاقة ماستر كارد لذوي الإعاقة',
+        'التفاصيل': 'تفاصيل الطلب ومرفقات الحالة...'
+      },
+      {
+        'اسم_المراجع': 'سارة عمار كاظم',
+        'رقم_الهاتف': '07809876543',
+        'الرقم_الوطني': '199587654321',
+        'المدينة': 'البصرة',
+        'عنوان_المراجع': 'الجبيلة',
+        'الجهة_المعنية': 'وزارة التربية',
+        'نوع_المعاملة': 'طلب نقل مدرس',
+        'عنوان_الطلب': 'طلب نقل إلى مدرسة قريبة من السكن',
+        'التفاصيل': 'يرجى التفضل بالموافقة على نقل المعلمة...'
+      }
+    ];
 
-    const csv = '\uFEFF' + [headers, sample1, sample2].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'قالب_استيراد_المعاملات_الجماعي.csv';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'المعاملات');
+    XLSX.writeFile(wb, 'قالب_استيراد_المعاملات_الجماعي.xlsx');
   };
 
-  // Parse CSV File
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Robust parsing using XLSX supporting .xlsx, .xls, .csv, .txt
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setErrorMsg('');
     setImportResult(null);
     if (!e.target.files || !e.target.files[0]) return;
@@ -60,61 +77,83 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
     const selectedFile = e.target.files[0];
     setFile(selectedFile);
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const text = event.target?.result as string;
-        const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
-        if (lines.length < 2) {
-          setErrorMsg('الملف فارغ أو لا يحتوي على صفوف بيانات');
-          return;
-        }
-
-        // Simple CSV splitter handling quotes
-        const parseCSVLine = (line: string) => {
-          const values: string[] = [];
-          let current = '';
-          let inQuote = false;
-          for (let i = 0; i < line.length; i++) {
-            const char = line[i];
-            if (char === '"') {
-              inQuote = !inQuote;
-            } else if (char === ',' && !inQuote) {
-              values.push(current.trim());
-              current = '';
-            } else {
-              current += char;
-            }
-          }
-          values.push(current.trim());
-          return values.map((v) => v.replace(/^"|"$/g, ''));
-        };
-
-        const rows: any[] = [];
-        for (let i = 1; i < lines.length; i++) {
-          const cols = parseCSVLine(lines[i]);
-          if (cols.length >= 2 && cols[0]) {
-            rows.push({
-              customerName: cols[0],
-              customerPhone: cols[1],
-              nationalId: cols[2] || undefined,
-              cityName: cols[3] || undefined,
-              address: cols[4] || undefined,
-              ministryName: cols[5] || undefined,
-              requestType: cols[6] || undefined,
-              title: cols[7] || `طلب مراجع: ${cols[0]}`,
-              details: cols[8] || ''
-            });
-          }
-        }
-
-        setParsedRows(rows);
-      } catch (err) {
-        setErrorMsg('تعذر قراءة ملف الـ CSV، يرجى التأكد من التنسيق');
+    try {
+      const buffer = await selectedFile.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      if (!firstSheetName) {
+        setErrorMsg('الملف لا يحتوي على أي صفحات بيانات صالحة.');
+        return;
       }
-    };
 
-    reader.readAsText(selectedFile, 'UTF-8');
+      const worksheet = workbook.Sheets[firstSheetName];
+      const rawData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+      if (!rawData || rawData.length < 2) {
+        setErrorMsg('الملف فارغ أو لا يحتوي على صفوف بيانات كافية.');
+        return;
+      }
+
+      const headers = (rawData[0] || []).map((h) => String(h || '').trim().toLowerCase());
+
+      const findColIdx = (aliases: string[], fallbackIdx: number) => {
+        const found = headers.findIndex((h) => aliases.some((a) => h.includes(a.toLowerCase())));
+        return found !== -1 ? found : fallbackIdx;
+      };
+
+      const nameIdx = findColIdx(['اسم_المراجع', 'اسم المراجع', 'الاسم', 'اسم', 'مراجع', 'name', 'customer'], 0);
+      const phoneIdx = findColIdx(['رقم_الهاتف', 'رقم الهاتف', 'الهاتف', 'الموبايل', 'هاتف', 'phone', 'mobile'], 1);
+      const nidIdx = findColIdx(['الرقم_الوطني', 'رقم_الهوية', 'الرقم الوطني', 'الهوية', 'nationalid'], 2);
+      const cityIdx = findColIdx(['المدينة', 'المحافظة', 'city'], 3);
+      const addrIdx = findColIdx(['عنوان_المراجع', 'عنوان السكن', 'العنوان', 'السكن', 'address'], 4);
+      const minIdx = findColIdx(['الجهة_المعنية', 'الجهة', 'الوزارة', 'ministry', 'entity'], 5);
+      const typeIdx = findColIdx(['نوع_المعاملة', 'نوع الطلب', 'النوع', 'type'], 6);
+      const titleIdx = findColIdx(['عنوان_الطلب', 'عنوان المعاملة', 'موضوع الطلب', 'العنوان', 'title'], 7);
+      const descIdx = findColIdx(['التفاصيل', 'تفاصيل الطلب', 'الوصف', 'details', 'description'], 8);
+
+      const rows: any[] = [];
+      for (let i = 1; i < rawData.length; i++) {
+        const row = rawData[i];
+        if (!row || !Array.isArray(row)) continue;
+
+        const customerName = String(row[nameIdx] !== undefined ? row[nameIdx] : '').trim();
+        const rawPhone = String(row[phoneIdx] !== undefined ? row[phoneIdx] : '').trim();
+        const customerPhone = rawPhone.replace(/\s+/g, '');
+        const nationalId = String(row[nidIdx] !== undefined ? row[nidIdx] : '').trim();
+        const cityName = String(row[cityIdx] !== undefined ? row[cityIdx] : '').trim();
+        const address = String(row[addrIdx] !== undefined ? row[addrIdx] : '').trim();
+        const ministryName = String(row[minIdx] !== undefined ? row[minIdx] : '').trim();
+        const requestType = String(row[typeIdx] !== undefined ? row[typeIdx] : '').trim();
+        const title = String(row[titleIdx] !== undefined ? row[titleIdx] : '').trim();
+        const details = String(row[descIdx] !== undefined ? row[descIdx] : '').trim();
+
+        if (!customerName && !customerPhone) continue;
+
+        if (customerName && customerPhone) {
+          rows.push({
+            customerName,
+            customerPhone,
+            nationalId: nationalId || undefined,
+            cityName: cityName || undefined,
+            address: address || undefined,
+            ministryName: ministryName || undefined,
+            requestType: requestType || undefined,
+            title: title || `طلب مراجع: ${customerName}`,
+            details: details || ''
+          });
+        }
+      }
+
+      if (rows.length === 0) {
+        setErrorMsg('لم يتم العثور على سجلات صالحة في الملف، تأكد من وجود عمودي اسم المراجع ورقم الهاتف.');
+        return;
+      }
+
+      setParsedRows(rows);
+    } catch (err: any) {
+      console.error('Error parsing request bulk file:', err);
+      setErrorMsg('فشل قراءة ملف الـ Excel أو CSV، يرجى التأكد من اختيار ملف صالح.');
+    }
   };
 
   const handleExecuteImport = async () => {
@@ -124,7 +163,9 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
       setErrorMsg('');
       const res = await requestService.bulkImport(parsedRows);
       setImportResult(res);
-      onSuccess();
+      if (res && res.successCount > 0) {
+        onSuccess();
+      }
     } catch (err: any) {
       setErrorMsg(err.message || 'حدث خطأ أثناء تنفيذ عملية الاستيراد');
     } finally {
@@ -164,115 +205,92 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
         )}
 
         {importResult ? (
-          <div className="space-y-4 py-4 text-center">
-            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto animate-bounce">
-              <CheckCircle2 className="w-10 h-10" />
-            </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-              اكتملت عملية الاستيراد بنجاح
-            </h3>
-            <div className="grid grid-cols-2 gap-3 max-w-xs mx-auto text-xs">
-              <div className="p-3 rounded-xl bg-emerald-50 text-emerald-800 font-bold">
-                تم استيرادها: {importResult.successCount}
+          <div className="space-y-4">
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 space-y-2 text-xs">
+              <div className="flex items-center gap-2 font-bold text-sm">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                <span>تم إكمال عملية الاستيراد الجماعي!</span>
               </div>
-              <div className="p-3 rounded-xl bg-slate-50 text-slate-600 font-bold">
-                تعذر: {importResult.failCount}
-              </div>
+              <p>تم إدخال وتحديث <strong>{importResult.successCount}</strong> معاملة بنجاح.</p>
+              {importResult.failCount > 0 && (
+                <p className="text-rose-600">تعذر إدخال {importResult.failCount} صف لعدم اكتمال البيانات.</p>
+              )}
             </div>
 
-            {importResult.errors.length > 0 && (
-              <div className="p-3 bg-amber-50 rounded-xl text-[11px] text-amber-800 text-right max-h-32 overflow-y-auto">
-                <p className="font-bold mb-1">الملاحظات والأخطاء:</p>
-                {importResult.errors.map((err, idx) => (
-                  <div key={idx}>• {err}</div>
-                ))}
-              </div>
-            )}
-
-            <Button variant="primary" onClick={onClose} className="w-full">
+            <Button
+              type="button"
+              variant="primary"
+              className="w-full font-bold"
+              onClick={onClose}
+            >
               إغلاق
             </Button>
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Step 1: Download Sample */}
-            <div className="p-4 bg-blue-50/60 dark:bg-blue-950/30 rounded-2xl border border-blue-100 dark:border-blue-900/40 flex items-center justify-between gap-3">
-              <div className="text-xs">
-                <span className="font-bold text-blue-900 dark:text-blue-300 block">
-                  1. تحميل نموذج القالب الجاهز:
-                </span>
-                <span className="text-blue-700 dark:text-blue-400 text-[11px]">
-                  حمّل القالب المعتمد واملأ بيانات المراجعين ثم ارفعه هنا.
-                </span>
+            {/* Download Template Box */}
+            <div className="p-4 bg-blue-50/60 dark:bg-blue-950/30 rounded-2xl border border-blue-100 dark:border-blue-900 flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="text-xs font-bold text-blue-900 dark:text-blue-100">
+                  هل تحتاج إلى نموذج لتعبئة البيانات؟
+                </div>
+                <div className="text-[11px] text-blue-700 dark:text-blue-300">
+                  حمّل قالب Excel الجاهز الذي يحتوي على ترتيب الأعمدة الصحيح.
+                </div>
               </div>
+
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 onClick={handleDownloadTemplate}
-                className="shrink-0 text-xs text-blue-700 border-blue-300 bg-white"
-                icon={<Download className="w-3.5 h-3.5" />}
+                icon={<Download className="w-4 h-4 text-blue-600" />}
+                className="shrink-0 bg-white dark:bg-gray-800"
               >
-                تحميل القالب CSV
+                تحميل القالب
               </Button>
             </div>
 
-            {/* Step 2: Upload File */}
-            <div>
-              <label className="block text-xs font-bold text-slate-800 dark:text-gray-200 mb-2">
-                2. اختر ملف البيانات (CSV):
+            {/* Upload Area */}
+            <div className="p-8 border-2 border-dashed border-slate-200 dark:border-gray-700 rounded-2xl text-center bg-slate-50/50 dark:bg-gray-850 hover:bg-slate-50 cursor-pointer transition">
+              <input
+                type="file"
+                id="requests-bulk-file-input"
+                className="hidden"
+                accept=".xlsx,.xls,.csv,.txt"
+                onChange={handleFileChange}
+              />
+              <label htmlFor="requests-bulk-file-input" className="cursor-pointer block space-y-2">
+                <Upload className="w-8 h-8 text-slate-400 mx-auto" />
+                <div className="text-xs font-bold text-slate-700 dark:text-white">
+                  {file ? file.name : 'اضغط لاختيار ملف أو اسحبه إلى هنا'}
+                </div>
+                <div className="text-[10px] text-slate-400 font-mono">
+                  {file ? `${(file.size / 1024).toFixed(1)} KB` : 'ملفات Excel (.xlsx, .xls) أو CSV حتى 20 ميجابايت'}
+                </div>
               </label>
-              <div className="p-6 border-2 border-dashed border-slate-200 dark:border-gray-700 rounded-2xl text-center bg-slate-50/50 dark:bg-gray-850 hover:bg-slate-50 cursor-pointer transition">
-                <input
-                  type="file"
-                  id="bulk-csv-input"
-                  accept=".csv,.txt"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-                <label htmlFor="bulk-csv-input" className="cursor-pointer block space-y-2">
-                  <Upload className="w-8 h-8 text-emerald-600 mx-auto" />
-                  <div className="text-xs font-bold text-slate-800 dark:text-white">
-                    {file ? file.name : 'اضغط لاختيار ملف الـ CSV'}
-                  </div>
-                  <div className="text-[10px] text-slate-400">
-                    {parsedRows.length > 0 ? `تم التعرف على ${parsedRows.length} سجل جاهز للاستيراد` : 'ملفات CSV المرمزة بـ UTF-8'}
-                  </div>
-                </label>
-              </div>
             </div>
 
-            {/* Preview Table */}
             {parsedRows.length > 0 && (
-              <div className="space-y-2">
-                <span className="text-xs font-bold text-slate-700 dark:text-gray-300">
-                  معاينة أول {Math.min(3, parsedRows.length)} سجلات:
-                </span>
-                <div className="p-3 bg-slate-50 dark:bg-gray-750 rounded-2xl border border-slate-200 dark:border-gray-700 max-h-40 overflow-y-auto space-y-2 text-xs">
-                  {parsedRows.slice(0, 3).map((r, i) => (
-                    <div key={i} className="flex justify-between items-center p-2 bg-white dark:bg-gray-800 rounded-xl border border-slate-100 dark:border-gray-700">
-                      <div>
-                        <strong>{r.customerName}</strong> ({r.customerPhone})
-                        <div className="text-[10px] text-slate-400">{r.title} - {r.ministryName || 'جهة عامة'}</div>
-                      </div>
-                      <span className="text-[10px] font-mono text-emerald-600 font-bold">جاهز ✓</span>
-                    </div>
-                  ))}
-                </div>
+              <div className="p-3 bg-slate-50 dark:bg-gray-750 rounded-xl border border-slate-200 dark:border-gray-700 text-xs flex items-center justify-between font-mono">
+                <span>تم التعرف على: <strong>{parsedRows.length}</strong> معاملة جاهزة للاستيراد</span>
+                <span className="text-emerald-600 font-bold">جاهز للحفظ</span>
               </div>
             )}
 
             <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-gray-700">
               <Button
+                type="button"
                 variant="primary"
-                className="w-full font-bold bg-emerald-600 hover:bg-emerald-700"
+                className="w-full font-bold"
                 onClick={handleExecuteImport}
-                isLoading={importing}
                 disabled={parsedRows.length === 0}
-                icon={<CheckCircle2 className="w-4 h-4" />}
+                isLoading={importing}
+                icon={<Upload className="w-4 h-4" />}
               >
-                تنفيذ استيراد {parsedRows.length} معاملة
+                بدء الاستيراد الآن ({parsedRows.length})
               </Button>
-              <Button variant="outline" onClick={onClose}>
+              <Button type="button" variant="outline" onClick={onClose}>
                 إلغاء
               </Button>
             </div>

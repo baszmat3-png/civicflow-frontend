@@ -32,10 +32,27 @@ const allowedMimes = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'text/plain'
+  'text/plain',
+  'text/csv',
+  'application/json',
+  'application/sql',
+  'text/x-sql'
 ];
 
-const allowedExtensions = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx', '.xls', '.xlsx', '.txt'];
+const allowedExtensions = [
+  '.pdf',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.doc',
+  '.docx',
+  '.xls',
+  '.xlsx',
+  '.txt',
+  '.csv',
+  '.json',
+  '.sql'
+];
 
 const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const ext = path.extname(file.originalname).toLowerCase();
@@ -45,7 +62,7 @@ const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilt
   } else {
     cb(
       new AppError(
-        'نوع الملف غير مدعوم. الأنواع المدعومة هي: PDF، الصور (JPG, PNG)، ومستندات Word و Excel',
+        'نوع الملف غير مدعوم. الأنواع المدعومة هي: PDF، الصور (JPG, PNG)، مستندات Word و Excel، وملفات النسخ الاحتياطي (JSON)',
         400,
         'UNSUPPORTED_FILE_TYPE'
       ) as any,

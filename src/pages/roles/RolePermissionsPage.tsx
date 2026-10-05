@@ -41,14 +41,16 @@ export const RolePermissionsPage: React.FC = () => {
     viewAuditLogs: true
   });
   const [isLoading, setIsLoading] = useState(false);
+  const initializedRoleIdRef = React.useRef<string | null>(null);
 
   useEffect(() => {
-    if (role) {
+    if (role && initializedRoleIdRef.current !== role.id) {
+      initializedRoleIdRef.current = role.id;
       setName(role.name);
       setDescription(role.description);
 
       // Fill in any missing modules
-      const map = new Map(role.permissions.map((p) => [p.module, p]));
+      const map = new Map((role.permissions || []).map((p) => [p.module, p]));
       const completeList: RolePermissionMatrix[] = ALL_MODULES.map((mod) => {
         return (
           map.get(mod) || {
