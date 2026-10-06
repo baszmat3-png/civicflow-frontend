@@ -32,3 +32,40 @@ export const formatTimePlus3 = (dateInput: Date | string | number | null | undef
     minute: '2-digit'
   });
 };
+
+export const getIraqTimeParts = (dateInput: Date = new Date()) => {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Baghdad',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+
+  const parts = formatter.formatToParts(dateInput);
+  const getPart = (type: string) => parts.find((p) => p.type === type)?.value || '0';
+
+  const year = parseInt(getPart('year'), 10);
+  const month = parseInt(getPart('month'), 10) - 1; // 0-indexed
+  const day = parseInt(getPart('day'), 10);
+  const hour = parseInt(getPart('hour'), 10);
+  const minute = parseInt(getPart('minute'), 10);
+  const second = parseInt(getPart('second'), 10);
+
+  const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const totalMinutes = hour * 60 + minute;
+
+  return {
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second,
+    dateStr,
+    totalMinutes
+  };
+};

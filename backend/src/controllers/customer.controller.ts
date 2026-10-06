@@ -5,6 +5,7 @@ import { AppError } from '../middlewares/error.middleware.js';
 import { sendSuccess } from '../utils/apiResponse.js';
 import { CustomerStatus } from '@prisma/client';
 import { generateNextCustomerNumber } from '../services/customerNumber.service.js';
+import { realtimeService } from '../services/realtime.service.js';
 
 const customerSchema = z.object({
   name: z.string().min(1, 'اسم المراجع مطلوب'),
@@ -283,6 +284,12 @@ export const createCustomer = async (req: Request, res: Response, next: NextFunc
       status: newCustomer.status === CustomerStatus.ACTIVE ? 'نشط' : 'محظور'
     };
 
+    try {
+      realtimeService.notifyNewCustomer(formatted);
+    } catch (sseErr) {
+      console.warn('⚠️ Realtime customer broadcast error:', sseErr);
+    }
+
     return sendSuccess(res, formatted, 'تم تسجيل المراجع بنجاح', 201);
   } catch (error) {
     next(error);
@@ -388,6 +395,12 @@ export const updateCustomer = async (req: Request, res: Response, next: NextFunc
       status: updated.status === CustomerStatus.ACTIVE ? 'نشط' : 'محظور'
     };
 
+    try {
+      realtimeService.notifyCustomerUpdated(formatted);
+    } catch (sseErr) {
+      console.warn('⚠️ Realtime customer update broadcast error:', sseErr);
+    }
+
     return sendSuccess(res, formatted, 'تم تحديث بيانات المراجع بنجاح');
   } catch (error) {
     next(error);
@@ -449,6 +462,12 @@ export const deleteCustomer = async (req: Request, res: Response, next: NextFunc
       }
     });
 
+    try {
+      realtimeService.notifyCustomerDeleted(id);
+    } catch (sseErr) {
+      console.warn('⚠️ Realtime customer delete broadcast error:', sseErr);
+    }
+
     return sendSuccess(res, null, 'تم حذف المراجع بنجاح');
   } catch (error) {
     next(error);
@@ -492,6 +511,9 @@ export const bulkDeleteCustomers = async (req: Request, res: Response, next: Nex
           await tx.customer.delete({ where: { id } });
         });
         deletedCount++;
+        try {
+          realtimeService.notifyCustomerDeleted(id);
+        } catch (sseErr) {}
       }
     }
 

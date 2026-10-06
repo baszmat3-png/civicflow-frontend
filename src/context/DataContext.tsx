@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import {
   RequestItem,
@@ -39,6 +39,7 @@ import {
 } from '../services/api';
 import { customerService } from '../services/customerService';
 import { realtimeService } from '../services/realtimeService';
+import { pingHealth } from '../services/apiClient';
 
 interface DataContextType {
   requests: RequestItem[];
@@ -50,6 +51,8 @@ interface DataContextType {
   auditLogs: AuditLog[];
   settings: SystemSettings | null;
   loading: boolean;
+  isSyncing: boolean;
+  isServerWaking: boolean;
   refreshData: () => Promise<void>;
   resetData: () => void;
   // Stats
@@ -111,66 +114,131 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [notifications, setNotifications] = useState<NotificationItem[]>(() => getInitialCached('notifications', []));
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => getInitialCached('auditLogs', []));
   const [settings, setSettings] = useState<SystemSettings | null>(() => getInitialCached('settings', null));
+
+  // If we already have cached data in localStorage, render immediately without blocking spinner!
   const [loading, setLoading] = useState<boolean>(() => {
-    const hasCached = typeof window !== 'undefined' && !!localStorage.getItem('civicflow_cache_requests');
-    return !hasCached;
+    if (typeof window === 'undefined') return true;
+    const hasCachedRequests = !!localStorage.getItem('civicflow_cache_requests');
+    const hasCachedCustomers = !!localStorage.getItem('civicflow_cache_customers');
+    return !hasCachedRequests && !hasCachedCustomers;
   });
 
-  const isRefreshingRef = React.useRef(false);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [isServerWaking, setIsServerWaking] = useState<boolean>(false);
+
+  const isRefreshingRef = useRef(false);
+  const retryTimeoutRef = useRef<any>(null);
+  const retryCountRef = useRef(0);
 
   const refreshData = useCallback(async () => {
     if (isRefreshingRef.current) return;
     isRefreshingRef.current = true;
+    setIsSyncing(true);
+
     try {
       const [reqs, custs, mins, emps, rols, notifs, logs, setts] = await Promise.all([
-        getRequests().catch(() => []),
-        getCustomers().catch(() => []),
-        getMinistries().catch(() => []),
-        getEmployees().catch(() => []),
-        getRoles().catch(() => []),
-        getNotifications().catch(() => []),
-        getAuditLogs().catch(() => []),
+        getRequests().catch(() => null),
+        getCustomers().catch(() => null),
+        getMinistries().catch(() => null),
+        getEmployees().catch(() => null),
+        getRoles().catch(() => null),
+        getNotifications().catch(() => null),
+        getAuditLogs().catch(() => null),
         getSystemSettings().catch(() => null)
       ]);
 
-      const validReqs = Array.isArray(reqs) ? reqs : (reqs as any)?.requests || [];
-      const validCusts = Array.isArray(custs) ? custs : (custs as any)?.customers || [];
-      const validMins = Array.isArray(mins) ? mins : (mins as any)?.ministries || [];
-      const validEmps = Array.isArray(emps) ? emps : (emps as any)?.users || (emps as any)?.employees || [];
-      const validRols = Array.isArray(rols) ? rols : (rols as any)?.roles || [];
-      const validNotifs = Array.isArray(notifs) ? notifs : (notifs as any)?.notifications || [];
-      const validLogs = Array.isArray(logs) ? logs : (logs as any)?.auditLogs || [];
-      const validSetts = setts && typeof setts === 'object' ? setts : null;
+      let hasAnySuccess = false;
 
-      setRequests(validReqs);
-      setCustomers(validCusts);
-      setMinistries(validMins);
-      setEmployees(validEmps);
-      setRoles(validRols);
-      setNotifications(validNotifs);
-      setAuditLogs(validLogs);
-      setSettings(validSetts);
+      if (reqs !== null) {
+        const validReqs = Array.isArray(reqs) ? reqs : (reqs as any)?.requests || [];
+        setRequests(validReqs);
+        setCached('requests', validReqs);
+        hasAnySuccess = true;
+      }
 
-      setCached('requests', validReqs);
-      setCached('customers', validCusts);
-      setCached('ministries', validMins);
-      setCached('employees', validEmps);
-      setCached('roles', validRols);
-      setCached('notifications', validNotifs);
-      setCached('auditLogs', validLogs);
-      if (validSetts) setCached('settings', validSetts);
+      if (custs !== null) {
+        const validCusts = Array.isArray(custs) ? custs : (custs as any)?.customers || [];
+        setCustomers(validCusts);
+        setCached('customers', validCusts);
+        hasAnySuccess = true;
+      }
+
+      if (mins !== null) {
+        const validMins = Array.isArray(mins) ? mins : (mins as any)?.ministries || [];
+        setMinistries(validMins);
+        setCached('ministries', validMins);
+      }
+
+      if (emps !== null) {
+        const validEmps = Array.isArray(emps) ? emps : (emps as any)?.users || (emps as any)?.employees || [];
+        setEmployees(validEmps);
+        setCached('employees', validEmps);
+      }
+
+      if (rols !== null) {
+        const validRols = Array.isArray(rols) ? rols : (rols as any)?.roles || [];
+        setRoles(validRols);
+        setCached('roles', validRols);
+      }
+
+      if (notifs !== null) {
+        const validNotifs = Array.isArray(notifs) ? notifs : (notifs as any)?.notifications || [];
+        setNotifications(validNotifs);
+        setCached('notifications', validNotifs);
+      }
+
+      if (logs !== null) {
+        const validLogs = Array.isArray(logs) ? logs : (logs as any)?.auditLogs || [];
+        setAuditLogs(validLogs);
+        setCached('auditLogs', validLogs);
+      }
+
+      if (setts !== null && typeof setts === 'object') {
+        setSettings(setts);
+        setCached('settings', setts);
+      }
+
+      if (hasAnySuccess) {
+        setIsServerWaking(false);
+        retryCountRef.current = 0;
+      } else {
+        // If all requests failed, server might be waking up on Render
+        setIsServerWaking(true);
+        retryCountRef.current += 1;
+        const nextDelay = Math.min(2500, 1000 + retryCountRef.current * 500);
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = setTimeout(() => {
+          refreshData();
+        }, nextDelay);
+      }
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.warn('⚠️ [DataContext] Data fetch notice (retrying):', error);
+      setIsServerWaking(true);
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = setTimeout(() => {
+        refreshData();
+      }, 2500);
     } finally {
       isRefreshingRef.current = false;
+      setIsSyncing(false);
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    // 0. Immediate pre-warm ping to spin up Render backend immediately
+    pingHealth(4000).catch(() => {});
+
+    // Initial data fetch
     refreshData();
 
     // 1. Subscribe to Real-Time Server-Sent Events (SSE)
+    const unsubConnected = realtimeService.subscribe('connected', () => {
+      console.log('⚡ [DataContext] Realtime SSE stream connected, syncing fresh data');
+      setIsServerWaking(false);
+      refreshData();
+    });
+
     const unsubNewReq = realtimeService.subscribe('new_request', (data) => {
       console.log('⚡ [DataContext] Instant SSE new_request received:', data);
       refreshData();
@@ -181,6 +249,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     const unsubReqDelete = realtimeService.subscribe('request_deleted', () => {
+      refreshData();
+    });
+
+    const unsubNewCust = realtimeService.subscribe('new_customer', (data) => {
+      console.log('⚡ [DataContext] Instant SSE new_customer received:', data);
+      refreshData();
+    });
+
+    const unsubCustUpdate = realtimeService.subscribe('customer_updated', () => {
+      refreshData();
+    });
+
+    const unsubCustDelete = realtimeService.subscribe('customer_deleted', () => {
       refreshData();
     });
 
@@ -203,24 +284,39 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     window.addEventListener('civicflow_data_updated', handleStorageUpdate);
     window.addEventListener('civicflow_auth_login', handleStorageUpdate);
+    window.addEventListener('focus', handleStorageUpdate);
+    window.addEventListener('online', handleStorageUpdate);
 
-    // 3. Gentle background polling interval (every 20s) as secondary safety net when page is active
+    // 3. Smart real-time polling interval (every 8s when active)
     const pollInterval = setInterval(() => {
-      if (document.visibilityState === 'visible' && !document.hidden) {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         refreshData();
       }
-    }, 20000);
+    }, 8000);
+
+    // 4. Keep-Alive ping every 3 minutes to prevent Render free tier from sleeping
+    const keepAliveInterval = setInterval(() => {
+      pingHealth(5000).catch(() => {});
+    }, 180000);
 
     return () => {
+      clearTimeout(retryTimeoutRef.current);
+      clearInterval(pollInterval);
+      clearInterval(keepAliveInterval);
+      unsubConnected();
       unsubNewReq();
       unsubReqUpdate();
       unsubReqDelete();
+      unsubNewCust();
+      unsubCustUpdate();
+      unsubCustDelete();
       unsubNewApt();
       unsubAptUpdate();
       unsubRating();
-      clearInterval(pollInterval);
       window.removeEventListener('civicflow_data_updated', handleStorageUpdate);
       window.removeEventListener('civicflow_auth_login', handleStorageUpdate);
+      window.removeEventListener('focus', handleStorageUpdate);
+      window.removeEventListener('online', handleStorageUpdate);
     };
   }, [refreshData]);
 
@@ -365,6 +461,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         auditLogs,
         settings,
         loading,
+        isSyncing,
+        isServerWaking,
         refreshData,
         resetData,
         unreadNotificationsCount,

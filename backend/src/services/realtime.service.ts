@@ -120,6 +120,33 @@ class RealtimeService {
       createdAt: new Date().toISOString()
     });
   }
+
+  public notifyNewCustomer(customerData: any) {
+    this.broadcast('new_customer', {
+      id: customerData.id,
+      customerNumber: customerData.customerNumber,
+      name: customerData.name,
+      phone: customerData.phone,
+      createdAt: new Date().toISOString()
+    });
+  }
+
+  public notifyCustomerUpdated(customerData: any) {
+    this.broadcast('customer_updated', {
+      id: customerData.id,
+      customerNumber: customerData.customerNumber,
+      name: customerData.name,
+      phone: customerData.phone,
+      updatedAt: new Date().toISOString()
+    });
+  }
+
+  public notifyCustomerDeleted(customerId: string) {
+    this.broadcast('customer_deleted', {
+      id: customerId,
+      deletedAt: new Date().toISOString()
+    });
+  }
 }
 
 export const realtimeService = new RealtimeService();

@@ -54,16 +54,33 @@ export class ApiError extends Error {
   }
 }
 
+export const pingHealth = async (timeoutMs = 6000): Promise<boolean> => {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(`${API_BASE_URL}/health`, {
+      method: 'GET',
+      credentials: 'omit',
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+
 interface RequestOptions extends RequestInit {
   params?: Record<string, any>;
   skipAuth?: boolean;
+  timeoutMs?: number;
 }
 
 export const request = async <T = any>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> => {
-  const { params, skipAuth = false, headers = {}, ...customConfig } = options;
+  const { params, skipAuth = false, headers = {}, timeoutMs = 25000, signal: customSignal, ...customConfig } = options;
 
   let url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
@@ -94,17 +111,27 @@ export const request = async <T = any>(
     reqHeaders['Authorization'] = `Bearer ${accessToken}`;
   }
 
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
+
   const config: RequestInit = {
     ...customConfig,
     headers: reqHeaders,
-    credentials: 'include' // include HTTP-only refresh cookies
+    credentials: 'include', // include HTTP-only refresh cookies
+    signal: customSignal || abortController.signal
   };
 
   let response: Response;
   try {
     response = await fetch(url, config);
   } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err?.name === 'AbortError') {
+      throw new ApiError('انتهت مهلة انتظار استجابة الخادم', 408, 'TIMEOUT');
+    }
     throw new ApiError('تعذر الاتصال بالخادم، يرجى التحقق من اتصال الشبكة', 0, 'NETWORK_ERROR');
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   // Handle 401 Unauthorized - Attempt Refresh

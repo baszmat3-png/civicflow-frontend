@@ -5,6 +5,9 @@ export type RealtimeEventType =
   | 'new_request'
   | 'request_updated'
   | 'request_deleted'
+  | 'new_customer'
+  | 'customer_updated'
+  | 'customer_deleted'
   | 'new_appointment'
   | 'appointment_updated'
   | 'new_rating';
@@ -50,6 +53,9 @@ class FrontendRealtimeService {
         'new_request',
         'request_updated',
         'request_deleted',
+        'new_customer',
+        'customer_updated',
+        'customer_deleted',
         'new_appointment',
         'appointment_updated',
         'new_rating'
