@@ -14,7 +14,7 @@ import { SendNotificationModal } from '../../components/request/SendNotification
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { addRequestAttachment, addFinalResponse } from '../../services/api';
 import { requestService } from '../../services/requestService';
-import { exportRequestItemToWord } from '../../services/wordExportService';
+import { exportOfficialLetterToWord, exportRequestFormToWord } from '../../services/wordExportService';
 import { usePermissions } from '../../hooks/usePermissions';
 import {
   User,
@@ -64,7 +64,8 @@ export const RequestDetailsPage: React.FC = () => {
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isExportingWord, setIsExportingWord] = useState(false);
+  const [isExportingOfficialWord, setIsExportingOfficialWord] = useState(false);
+  const [isExportingFormWord, setIsExportingFormWord] = useState(false);
 
   if (!request) {
     return (
@@ -224,21 +225,43 @@ export const RequestDetailsPage: React.FC = () => {
             size="sm"
             onClick={async () => {
               try {
-                setIsExportingWord(true);
-                await exportRequestItemToWord(request);
-                success('تم تجهيز ملف Word', 'تم تصدير وتحميل مستند المعاملة بصيغة Word (.docx) بنجاح.');
+                setIsExportingOfficialWord(true);
+                await exportOfficialLetterToWord(request);
+                success('تم تجهيز الكتاب الرسمي', 'تم تصدير وتحميل الكتاب الرسمي الموجه للجهة بصيغة Word (.docx) بنجاح.');
               } catch (err: any) {
                 toastError('فشل التصدير', err?.message || 'حدث خطأ أثناء تصدير ملف Word');
               } finally {
-                setIsExportingWord(false);
+                setIsExportingOfficialWord(false);
               }
             }}
-            isLoading={isExportingWord}
+            isLoading={isExportingOfficialWord}
             icon={<FileText className="w-4 h-4 text-blue-600" />}
             className="border-blue-200 text-blue-800 hover:bg-blue-50 font-bold"
-            title="تصدير وطباعة تفاصيل المعاملة إلى ملف Word (.docx)"
+            title="تصدير كتاب رسمي رسمي موجه للجهة الحكومية بصيغة Word (.docx)"
           >
-            طباعة Word
+            كتاب رسمي Word
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              try {
+                setIsExportingFormWord(true);
+                await exportRequestFormToWord(request);
+                success('تم تجهيز طلب المعاملة', 'تم تصدير وتحميل استمارة الطلب (الصادر والوارد) بصيغة Word (.docx) بنجاح.');
+              } catch (err: any) {
+                toastError('فشل التصدير', err?.message || 'حدث خطأ أثناء تصدير ملف Word');
+              } finally {
+                setIsExportingFormWord(false);
+              }
+            }}
+            isLoading={isExportingFormWord}
+            icon={<FileText className="w-4 h-4 text-indigo-600" />}
+            className="border-indigo-200 text-indigo-800 hover:bg-indigo-50 font-bold"
+            title="تصدير طلب المعاملة والصادر والوارد بصيغة Word (.docx)"
+          >
+            طلب الصادر Word
           </Button>
 
           <Button variant="outline" size="sm" onClick={handlePrint} icon={<Printer className="w-4 h-4" />}>
