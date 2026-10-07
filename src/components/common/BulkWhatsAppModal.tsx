@@ -199,6 +199,7 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
       .replace(/{{ministry}}/g, item.ministry || item.ministryName || 'الجهة الحكومية')
       .replace(/{{title}}/g, item.title || 'معاملة رسمية')
       .replace(/{{phone}}/g, item.phoneNumber || '')
+      .replace(/{{custom_message}}\n?/g, '')
       .replace(
         /{{tracking_link}}/g,
         item.trackingLink ||

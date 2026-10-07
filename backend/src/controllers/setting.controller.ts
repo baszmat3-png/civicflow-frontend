@@ -54,8 +54,8 @@ const DEFAULT_WA_TEMPLATES = [
   {
     key: 'bulk_custom_message',
     title: 'رسالة جماعية مخصصة للمراجعين',
-    content: 'السلام عليكم الأخ/الأخت {{customer_name}} المحترم،\nنود إعلامكم بخصوص معاملتكم ({{request_number}}) لدى ({{ministry}}):\n{{custom_message}}\n\nلمتابعة تفاصيل الطلب: {{tracking_link}}\nمع تحيات مكتب المتابعة.',
-    variables: ['customer_name', 'request_number', 'ministry', 'title', 'custom_message', 'tracking_link', 'phone']
+    content: 'السلام عليكم الأخ/الأخت {{customer_name}} المحترم،\nنود إعلامكم بخصوص معاملتكم ({{request_number}}) لدى ({{ministry}}):\nيرجى العلم بأنه تم تحديث الإجراءات بنجاح.\n\nلمتابعة تفاصيل الطلب: {{tracking_link}}\nمع تحيات مكتب المتابعة.',
+    variables: ['customer_name', 'request_number', 'ministry', 'title', 'tracking_link', 'phone']
   }
 ];
 

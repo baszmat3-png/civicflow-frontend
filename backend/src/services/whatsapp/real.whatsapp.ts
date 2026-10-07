@@ -81,6 +81,12 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
 
       console.log(`📡 [WP SENDER DISPATCH] Sending WhatsApp message from ${senderPhone} to: ${formattedPhone} via ${apiUrl} ${options.document ? `(with ${isImg ? 'image' : 'document'}: ${options.document.filename})` : ''}`);
       try {
+        let finalMessage = options.message;
+        if (options.document?.url && !finalMessage.includes(options.document.url)) {
+          const fileLabel = isImg ? 'صورة المرفق' : 'مستند المعاملة';
+          finalMessage = `${finalMessage}\n\n📎 ${fileLabel}: ${options.document.url}`;
+        }
+
         const payload: any = {
           api_key: apiKey,
           to: formattedPhone,
@@ -91,8 +97,10 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
           from: senderPhone,
           account: senderPhone,
           sender_phone: senderPhone,
-          message: options.message,
-          caption: options.message
+          message: finalMessage,
+          text: finalMessage,
+          body: finalMessage,
+          caption: finalMessage
         };
 
         if (options.document) {
@@ -115,6 +123,7 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
             payload.fileUrl = docUrl;
             payload.file_url = docUrl;
             payload.attachment = docUrl;
+            payload.attachment_url = docUrl;
             payload.media = docUrl;
             payload.file = docUrl;
             if (isImg) {
