@@ -15,10 +15,15 @@ export const app = express();
 // Trust proxy for Render / Cloudflare reverse proxies so rate limiter gets real client IP
 app.set('trust proxy', 1);
 
-// Security headers
-app.use(helmet());
+// Security headers with cross-origin resource sharing for uploads
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    crossOriginEmbedderPolicy: false
+  })
+);
 
-// CORS configuration for Frontend
+// CORS configuration for Frontend & External Gateways
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -53,8 +58,18 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
 
-// Static uploads serving for public documents and WhatsApp attachments
-app.use('/uploads', express.static(path.resolve(process.cwd(), env.UPLOAD_DIR)));
+// Static uploads serving for public documents and WhatsApp attachments (Permissive CORS & CORP)
+app.use(
+  '/uploads',
+  cors(),
+  express.static(path.resolve(process.cwd(), env.UPLOAD_DIR), {
+    setHeaders: (res) => {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+    }
+  })
+);
 
 // Health check & Infrastructure monitoring endpoint (Always accessible for Render / Ping)
 app.get(['/api/health', '/health'], (req, res) => {

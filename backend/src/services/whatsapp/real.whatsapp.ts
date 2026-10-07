@@ -97,37 +97,37 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
 
         if (options.document) {
           const docUrl = options.document.url || '';
-          const base64Str = options.document.base64 ? `data:${options.document.mimetype || 'image/jpeg'};base64,${options.document.base64}` : undefined;
+          const rawBase64 = options.document.base64 || '';
+          const base64DataUri = rawBase64 ? `data:${options.document.mimetype || (isImg ? 'image/jpeg' : 'application/pdf')};base64,${rawBase64}` : '';
 
           payload.type = isImg ? 'image' : 'document';
           payload.media_type = isImg ? 'image' : 'document';
           payload.filename = options.document.filename;
+          payload.file_name = options.document.filename;
+          payload.name = options.document.filename;
 
           if (docUrl) {
             payload.url = docUrl;
             payload.media_url = docUrl;
-            payload.media = docUrl;
-            payload.file = docUrl;
+            payload.mediaUrl = docUrl;
+            payload.imageUrl = docUrl;
+            payload.image_url = docUrl;
+            payload.fileUrl = docUrl;
             payload.file_url = docUrl;
             payload.attachment = docUrl;
+            payload.media = docUrl;
+            payload.file = docUrl;
             if (isImg) {
               payload.image = docUrl;
-              payload.image_url = docUrl;
             } else {
               payload.document = docUrl;
-              payload.document_url = docUrl;
             }
           }
 
-          if (base64Str) {
-            payload.base64 = options.document.base64;
-            payload.data = base64Str;
-            if (!docUrl) {
-              payload.media = base64Str;
-              payload.file = base64Str;
-              if (isImg) payload.image = base64Str;
-              else payload.document = base64Str;
-            }
+          if (rawBase64) {
+            payload.base64 = rawBase64;
+            payload.media_base64 = rawBase64;
+            payload.data = base64DataUri;
           }
         }
 
