@@ -241,19 +241,25 @@ export const sendBulkWhatsApp = async (req: Request, res: Response, next: NextFu
       if (item.title) formattedMessage = formattedMessage.replace(/{{title}}/g, item.title);
       if (phone) formattedMessage = formattedMessage.replace(/{{phone}}/g, phone);
       if (item.trackingLink) formattedMessage = formattedMessage.replace(/{{tracking_link}}/g, item.trackingLink);
+      formattedMessage = formattedMessage.replace(/{{custom_message}}/g, req.body.customMessage || message || '');
 
       try {
-        await whatsAppProvider.sendMessage({
+        const result = await whatsAppProvider.sendMessage({
           to: phone,
           message: formattedMessage,
           templateKey: templateKey || 'bulk_custom_message',
           requestId: item.requestId || item.id,
           document
         });
+        if (!result.success) {
+          failCount++;
+          errors.push(`${phone}: ${result.errorMessage || 'تعذر الإرسال'}`);
+          continue;
+        }
         successCount++;
       } catch (err: any) {
         failCount++;
-        errors.push(`${phone}: ${err.message}`);
+        errors.push(`${phone}: ${err.message || 'خطأ أثناء الإرسال'}`);
       }
     }
 
