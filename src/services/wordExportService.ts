@@ -26,8 +26,8 @@ export interface WordRequestData {
   priority?: string;
 }
 
-/* ───────── 1. إعدادات كليشة الكتاب الرسمي (النموذج 1) ───────── */
-const FONT = 'Arial';                          // يمكن تغييره الى Simplified Arabic
+/* ───────── 1. إعدادات الكليشة (توقيت بغداد UTC+3) ───────── */
+const FONT = 'Arial';                          // الخط العربي المعتمد
 const OFFICE_TITLE = 'مدير مكتب النائب الأول';
 // الصفحة A4 — الهوامش بالتويبس (1 ملم ≈ 56.7)
 const PAGE = { width: 11906, height: 16838 };
@@ -44,23 +44,61 @@ const MONTHS = [
 
 const toArabicDigits = (s: string) => s.replace(/\d/g, (d) => '٠١٢٣٤٥٦٧٨٩'[Number(d)]);
 
+/**
+ * تنسيق التاريخ بدقة وفق توقيت بغداد (UTC+3)
+ */
 function formatDate(input?: string): string {
+  if (input && /^\d{4}-\d{2}-\d{2}$/.test(input)) {
+    const [y, m, day] = input.split('-').map(Number);
+    return toArabicDigits(`${day} / ${MONTHS[m - 1]} / ${y}`);
+  }
+
   let d = input ? new Date(input) : new Date();
   if (isNaN(d.getTime())) d = new Date();
-  return toArabicDigits(`${d.getDate()} / ${MONTHS[d.getMonth()]} / ${d.getFullYear()}`);
+
+  // ضبط التوقيت وفق Asia/Baghdad (GMT+3)
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Baghdad',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  const parts = formatter.formatToParts(d);
+  const year = parts.find((p) => p.type === 'year')?.value || String(d.getFullYear());
+  const month = parseInt(parts.find((p) => p.type === 'month')?.value || '1', 10);
+  const day = parseInt(parts.find((p) => p.type === 'day')?.value || '1', 10);
+
+  return toArabicDigits(`${day} / ${MONTHS[month - 1]} / ${year}`);
+}
+
+function getBaghdadDateString(input?: string): string {
+  if (input && /^\d{4}-\d{2}-\d{2}$/.test(input)) {
+    return input;
+  }
+  const d = input ? new Date(input) : new Date();
+  if (isNaN(d.getTime())) return new Date().toISOString().split('T')[0];
+  
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Baghdad',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  return formatter.format(d);
 }
 
 /**
  * النموذج الأول: كتاب رسمي موجه إلى الوزارة / الجهة الحكومية
+ * مع التذييل (مدير المكتب، التاريخ، الهامش: نسخة منه للحفظ، نسخة منه للصادر)
  */
 export async function printOfficialLetterWord(req: WordRequestData) {
-  // START = بداية السطر = اليمين في الفقرات العربية
+  const rtl = { alignment: AlignmentType.RIGHT, bidirectional: true };
   const START: any = (AlignmentType as any).START ?? AlignmentType.RIGHT;
 
   const run = (text: string, opts: any = {}) =>
     new TextRun({ text: text || '', rightToLeft: true, font: FONT, size: 24, ...opts });
 
-  // فقرة بمسافات دقيقة (line = ارتفاع السطر ثابت، after = المسافة بعدها)
+  // فقرة بمسافات دقيقة
   const para = (
     children: TextRun[],
     o: { align?: any; line?: number; after?: number; start?: number } = {}
@@ -78,9 +116,48 @@ export async function printOfficialLetterWord(req: WordRequestData) {
       children
     });
 
+  const dateStr = getBaghdadDateString(req.submitDate);
+  const formattedArabicDate = formatDate(req.submitDate);
+
+  // تذييل الصفحة الرسمي (Footer)
+  const footer = new Footer({
+    children: [
+      // بيانات المراجع أسفل اليسار
+      new Paragraph({
+        alignment: AlignmentType.LEFT,
+        bidirectional: true,
+        spacing: { after: 60 },
+        children: [run(`المراجع: ${req.applicantName || '---'}`, { bold: true, size: 22 })]
+      }),
+      new Paragraph({
+        alignment: AlignmentType.LEFT,
+        bidirectional: true,
+        spacing: { after: 60 },
+        children: [run(`رقم الهاتف: ${req.applicantPhone || '---'}`, { size: 22 })]
+      }),
+      new Paragraph({
+        alignment: AlignmentType.LEFT,
+        bidirectional: true,
+        spacing: { after: 120 },
+        children: [run(`التاريخ: ${dateStr}`, { size: 22 })]
+      }),
+
+      // الهامش / النسخ
+      new Paragraph({
+        ...rtl,
+        spacing: { after: 60 },
+        children: [run('نسخة منه للحفظ', { bold: true, size: 22 })]
+      }),
+      new Paragraph({
+        ...rtl,
+        children: [run('نسخة منه للصادر ... للعلم مع التقدير', { bold: true, size: 22 })]
+      })
+    ]
+  });
+
   const children: Paragraph[] = [];
 
-  // البسملة
+  // 1. البسملة
   children.push(
     para([run('بسم الله الرحمن الرحيم', { bold: true, size: 34 })], {
       align: AlignmentType.CENTER,
@@ -89,7 +166,7 @@ export async function printOfficialLetterWord(req: WordRequestData) {
     })
   );
 
-  // إلى / اسم الوزارة   (≈ 79 ملم من الأعلى)
+  // 2. إلى / اسم الوزارة   (≈ 79 ملم من الأعلى)
   children.push(
     para(
       [
@@ -100,7 +177,7 @@ export async function printOfficialLetterWord(req: WordRequestData) {
     )
   );
 
-  // م / عنوان الطلب  (في الوسط)
+  // 3. م / عنوان الطلب  (في الوسط)
   children.push(
     para(
       [
@@ -111,34 +188,34 @@ export async function printOfficialLetterWord(req: WordRequestData) {
     )
   );
 
-  // تحية طيبة
+  // 4. تحية طيبة
   children.push(
     para([run('تحية طيبة ...', { bold: true, size: 28 })], { line: 400, after: 300 })
   );
 
-  // نص الكتاب (فقرة واحدة متراصة، بين السطور ≈ 8 ملم)
+  // 5. نص الكتاب
   children.push(
     para(
       [
         run('نرفق اليكم ربطا التماس السيد ('),
         run(req.applicantName || 'المراجع', { bold: true }),
         run(') المنسوب الى وزارتكم الموقرة، المتضمن طلب '),
-        run(req.type || 'عام', { bold: true }),
+        run(req.type || req.title || 'عام', { bold: true }),
         run('.')
       ],
       { align: AlignmentType.BOTH, line: 454, after: 340 }
     )
   );
 
-  // سطر الختام (مزاح قليلا عن الهامش)
+  // 6. سطر الختام
   children.push(
     para(
       [run('التفضل بالاطلاع وامكانية تلبية طلبه اصوليا واعلامنا .. مع التقدير.', { bold: true, size: 26 })],
-      { line: 400, after: 2095, start: 935 }
+      { line: 400, after: 1800, start: 935 }
     )
   );
 
-  // التوقيع: مدير المكتب + التاريخ (كتلة متوسطة في الجهة اليسرى من اليمين، كما في الأصل)
+  // 7. التوقيع: مدير المكتب + التاريخ
   children.push(
     para([run(OFFICE_TITLE, { bold: true, size: 26 })], {
       align: AlignmentType.CENTER,
@@ -147,7 +224,7 @@ export async function printOfficialLetterWord(req: WordRequestData) {
     })
   );
   children.push(
-    para([run(formatDate(req.submitDate), { bold: true, size: 26 })], {
+    para([run(formattedArabicDate, { bold: true, size: 26 })], {
       align: AlignmentType.CENTER,
       line: 400,
       start: 5050
@@ -164,10 +241,12 @@ export async function printOfficialLetterWord(req: WordRequestData) {
               top: 1134,
               bottom: MARGIN_BOTTOM,
               left: MARGIN_LEFT,
-              right: MARGIN_RIGHT
+              right: MARGIN_RIGHT,
+              footer: 567
             }
           }
         },
+        footers: { default: footer },
         children
       }
     ]
@@ -187,7 +266,7 @@ export async function printRequestFormWord(req: WordRequestData) {
   const run = (text: string, opts: any = {}) =>
     new TextRun({ text: text || '', rightToLeft: true, font: 'Arial', size: 26, ...opts });
 
-  const date = req.submitDate || new Date().toISOString().split('T')[0];
+  const dateStr = getBaghdadDateString(req.submitDate);
 
   // سطر فارغ
   const emptyLine = () => new Paragraph({ children: [run('')] });
@@ -212,7 +291,7 @@ export async function printRequestFormWord(req: WordRequestData) {
         alignment: AlignmentType.LEFT,
         bidirectional: true,
         spacing: { after: 80 },
-        children: [run(`التاريخ: ${date}`)]
+        children: [run(`التاريخ: ${dateStr}`)]
       }),
 
       // سطران فارغان قبل نهاية الورقة
@@ -223,7 +302,7 @@ export async function printRequestFormWord(req: WordRequestData) {
       new Paragraph({
         ...rtl,
         spacing: { after: 80 },
-        children: [run('الأرشيف للحفظ', { bold: true })]
+        children: [run('نسخة منه للحفظ', { bold: true })]
       }),
       new Paragraph({
         ...rtl,
@@ -286,7 +365,7 @@ export async function printRequestFormWord(req: WordRequestData) {
             children: [run('تحية طيبة ،،،', { bold: true })]
           }),
 
-          // نص المعاملة (بدون عنوان "تفاصيل الطلب" وبدون رقم المعاملة)
+          // نص المعاملة
           new Paragraph({
             ...rtl,
             spacing: { after: 400, line: 360 },
