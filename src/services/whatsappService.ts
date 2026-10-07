@@ -22,7 +22,22 @@ export const whatsappService = {
     return apiClient.get<any[]>('/whatsapp/logs');
   },
 
-  sendWhatsApp: async (phoneNumber: string, message: string, templateKey?: string, requestId?: string) => {
+  sendWhatsApp: async (
+    phoneNumber: string,
+    message: string,
+    templateKey?: string,
+    requestId?: string,
+    document?: File | null
+  ) => {
+    if (document) {
+      const fd = new FormData();
+      fd.append('phoneNumber', phoneNumber);
+      fd.append('message', message);
+      if (templateKey) fd.append('templateKey', templateKey);
+      if (requestId) fd.append('requestId', requestId);
+      fd.append('document', document);
+      return apiClient.post('/whatsapp/send', fd);
+    }
     return apiClient.post('/whatsapp/send', {
       phoneNumber,
       message,
@@ -44,8 +59,17 @@ export const whatsappService = {
       id?: string;
     }>,
     message: string,
-    templateKey?: string
+    templateKey?: string,
+    document?: File | null
   ): Promise<{ successCount: number; failCount: number; total: number; errors: string[] }> => {
+    if (document) {
+      const fd = new FormData();
+      fd.append('recipients', JSON.stringify(recipients));
+      fd.append('message', message);
+      if (templateKey) fd.append('templateKey', templateKey);
+      fd.append('document', document);
+      return apiClient.post('/whatsapp/send-bulk', fd);
+    }
     return apiClient.post('/whatsapp/send-bulk', {
       recipients,
       message,

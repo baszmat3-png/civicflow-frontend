@@ -73,9 +73,9 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
 
     // 1. استخدام WPSender الرسمي في حال توفر المفتاح
     if (apiKey && apiKey.startsWith('wps_')) {
-      console.log(`📡 [WP SENDER DISPATCH] Sending WhatsApp message from ${senderPhone} to: ${formattedPhone} via ${apiUrl}`);
+      console.log(`📡 [WP SENDER DISPATCH] Sending WhatsApp message from ${senderPhone} to: ${formattedPhone} via ${apiUrl} ${options.document ? `(with document: ${options.document.filename})` : ''}`);
       try {
-        const payload = {
+        const payload: any = {
           api_key: apiKey,
           to: formattedPhone,
           phone: formattedPhone,
@@ -87,6 +87,14 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
           sender_phone: senderPhone,
           message: options.message
         };
+
+        if (options.document?.url) {
+          payload.document = options.document.url;
+          payload.document_url = options.document.url;
+          payload.file = options.document.url;
+          payload.filename = options.document.filename;
+          payload.caption = options.message;
+        }
 
         const response = await fetch(apiUrl, {
           method: 'POST',
@@ -117,7 +125,7 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
           data: {
             phoneNumber: formattedPhone,
             templateKey: options.templateKey || null,
-            messageContent: options.message,
+            messageContent: options.document ? `${options.message}\n📎 [مرفق: ${options.document.filename}]` : options.message,
             status: status,
             errorMessage: errorMessage || null,
             requestId: options.requestId || null
@@ -140,20 +148,34 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
     const ultraToken = (process.env.ULTRAMSG_TOKEN || (env as any).ULTRAMSG_TOKEN || '').trim();
 
     if (ultraInstance && ultraToken) {
-      const ultraUrl = `https://api.ultramsg.com/${ultraInstance}/messages/chat`;
+      const isDocument = Boolean(options.document?.url);
+      const ultraUrl = isDocument
+        ? `https://api.ultramsg.com/${ultraInstance}/messages/document`
+        : `https://api.ultramsg.com/${ultraInstance}/messages/chat`;
+
       console.log(`📡 [ULTRAMSG DISPATCH] Fallback WhatsApp message to: ${formattedPhone} via ${ultraUrl}`);
 
       try {
+        const params = isDocument
+          ? {
+              token: ultraToken,
+              to: formattedPhone,
+              filename: options.document?.filename || 'document.pdf',
+              document: options.document?.url || '',
+              caption: options.message || ''
+            }
+          : {
+              token: ultraToken,
+              to: formattedPhone,
+              body: options.message
+            };
+
         const response = await fetch(ultraUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded'
           },
-          body: new URLSearchParams({
-            token: ultraToken,
-            to: formattedPhone,
-            body: options.message
-          }).toString()
+          body: new URLSearchParams(params as any).toString()
         });
 
         const data: any = await response.json().catch(() => ({}));
@@ -166,7 +188,7 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
           data: {
             phoneNumber: formattedPhone,
             templateKey: options.templateKey || null,
-            messageContent: options.message,
+            messageContent: options.document ? `${options.message}\n📎 [مرفق: ${options.document.filename}]` : options.message,
             status,
             errorMessage: errorMessage || null,
             requestId: options.requestId || null

@@ -1,8 +1,16 @@
+export interface WhatsAppDocumentAttachment {
+  url?: string;
+  filename: string;
+  localPath?: string;
+  mimetype?: string;
+}
+
 export interface SendWhatsAppOptions {
   to: string;
   message: string;
   templateKey?: string;
   requestId?: string;
+  document?: WhatsAppDocumentAttachment;
 }
 
 export interface SendWhatsAppResult {

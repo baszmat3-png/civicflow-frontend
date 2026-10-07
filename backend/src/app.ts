@@ -53,11 +53,8 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
 
-// Static uploads serving is restricted to non-production environments
-// In production, all document downloads must go through authenticated/authorized API endpoints
-if (env.NODE_ENV !== 'production') {
-  app.use('/uploads', express.static(path.resolve(process.cwd(), env.UPLOAD_DIR)));
-}
+// Static uploads serving for public documents and WhatsApp attachments
+app.use('/uploads', express.static(path.resolve(process.cwd(), env.UPLOAD_DIR)));
 
 // Health check & Infrastructure monitoring endpoint (Always accessible for Render / Ping)
 app.get(['/api/health', '/health'], (req, res) => {

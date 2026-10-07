@@ -19,7 +19,11 @@ import {
   Play,
   RotateCcw,
   ShieldCheck,
-  Timer
+  Timer,
+  Upload,
+  FileText,
+  Trash2,
+  Paperclip
 } from 'lucide-react';
 
 export interface BulkRecipientItem {
@@ -99,6 +103,9 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
   const [selectedTemplateKey, setSelectedTemplateKey] = useState<string>('bulk_custom_message');
   const [messageText, setMessageText] = useState<string>('');
   const [loadingTemplates, setLoadingTemplates] = useState(false);
+
+  // Document Attachment
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
 
   // Staggered Delay config (Anti-ban protection)
   const [delayValue, setDelayValue] = useState<number>(5);
@@ -265,7 +272,8 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
           targetPhone,
           itemMsg,
           selectedTemplateKey !== 'custom' ? selectedTemplateKey : undefined,
-          currentItem.requestId || currentItem.id
+          currentItem.requestId || currentItem.id,
+          attachedFile
         );
 
         successCount++;
@@ -456,6 +464,71 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
           />
         </div>
 
+        {/* Document Attachment Section (Optional) */}
+        <div className="space-y-2">
+          <label className="block text-xs font-bold text-slate-700">
+            إرفاق مستند (اختياري)
+          </label>
+
+          {!attachedFile ? (
+            <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/70 hover:bg-emerald-50/40 rounded-2xl p-5 text-center cursor-pointer transition group shadow-2xs">
+              <div className="w-11 h-11 rounded-2xl bg-white border border-slate-200 group-hover:border-emerald-300 flex items-center justify-center text-slate-500 group-hover:text-emerald-600 mb-2 transition shadow-xs">
+                <Upload className="w-5 h-5" />
+              </div>
+              <span className="text-xs font-bold text-slate-800 group-hover:text-emerald-900">
+                اضغط لاختيار ملف
+              </span>
+              <span className="text-[11px] text-slate-400 mt-0.5">
+                PDF / صورة / Word، حتى 25 ميغابايت
+              </span>
+              <input
+                type="file"
+                hidden
+                disabled={isSending}
+                accept=".pdf,.jpg,.jpeg,.png,.docx,.doc"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) {
+                    if (f.size > 25 * 1024 * 1024) {
+                      toastError('حجم الملف يتجاوز الحد المسموح به (25 ميغابايت)');
+                      return;
+                    }
+                    setAttachedFile(f);
+                  }
+                }}
+              />
+            </label>
+          ) : (
+            <div className="flex items-center justify-between p-3.5 bg-emerald-950/5 border border-emerald-500/30 rounded-2xl transition">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-emerald-950 truncate max-w-[220px] sm:max-w-md">
+                    {attachedFile.name}
+                  </div>
+                  <div className="text-[11px] text-emerald-600 font-medium">
+                    {attachedFile.size >= 1024 * 1024
+                      ? `${(attachedFile.size / (1024 * 1024)).toFixed(1)} ميغابايت`
+                      : `${Math.round(attachedFile.size / 1024)} كيلوبايت`}
+                    ، جاهز للإرسال
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAttachedFile(null)}
+                disabled={isSending}
+                className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition"
+                title="إزالة الملف"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Live Preview Bubble */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-xs font-bold text-slate-600">
@@ -474,7 +547,13 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
             </button>
           </div>
           <div className="bg-[#e5ddd5] p-3.5 rounded-2xl border border-slate-300/80 shadow-inner">
-            <div className="bg-white rounded-xl p-3 max-w-md ml-auto rounded-tr-none shadow-sm space-y-1.5 text-right border border-emerald-100">
+            <div className="bg-white rounded-xl p-3 max-w-md ml-auto rounded-tr-none shadow-sm space-y-2 text-right border border-emerald-100">
+              {attachedFile && (
+                <div className="flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-xs font-bold text-emerald-900">
+                  <FileText className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="truncate">{attachedFile.name}</span>
+                </div>
+              )}
               <p className="text-xs text-slate-800 whitespace-pre-wrap leading-relaxed">
                 {formattedPreview || 'نص الرسالة فارغ...'}
               </p>

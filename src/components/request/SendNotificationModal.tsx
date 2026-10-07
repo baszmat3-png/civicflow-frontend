@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { RequestItem } from '../../types';
-import { MessageSquare, Phone, Send, CheckCircle2 } from 'lucide-react';
+import { MessageSquare, Phone, Send, CheckCircle2, Upload, FileText, Trash2 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 
 interface SendNotificationModalProps {
@@ -16,9 +16,10 @@ export const SendNotificationModal: React.FC<SendNotificationModalProps> = ({
   onClose,
   request
 }) => {
-  const { success } = useToast();
+  const { success, error: toastError } = useToast();
   const [channel, setChannel] = useState<'whatsapp' | 'sms'>('whatsapp');
   const [template, setTemplate] = useState('status');
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const trackingBase = typeof window !== 'undefined' ? window.location.origin : 'https://civicflow-frontend-1-hoy9.onrender.com';
   const [customText, setCustomText] = useState(
     `عزيزي المراجع ${request.customerName}، نود إحاطتكم بآخر تحديثات طلبكم رقم ${request.requestNumber} لدى ${request.ministryName}: حالياً (${request.status}). الرابط: ${trackingBase}/track/${request.requestNumber}`
@@ -56,7 +57,8 @@ export const SendNotificationModal: React.FC<SendNotificationModalProps> = ({
           request.customerPhone,
           customText.trim(),
           template !== 'custom' ? template : undefined,
-          request.id
+          request.id,
+          attachedFile
         );
       }
       success(
@@ -149,6 +151,65 @@ export const SendNotificationModal: React.FC<SendNotificationModalProps> = ({
             className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 leading-relaxed font-sans"
           />
         </div>
+
+        {/* Document Attachment Section (Optional for WhatsApp) */}
+        {channel === 'whatsapp' && (
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-slate-600">
+              إرفاق مستند (اختياري)
+            </label>
+            {!attachedFile ? (
+              <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/70 hover:bg-emerald-50/40 rounded-xl p-3.5 text-center cursor-pointer transition group">
+                <Upload className="w-5 h-5 text-slate-400 group-hover:text-emerald-600 mb-1 transition" />
+                <span className="text-xs font-bold text-slate-700 group-hover:text-emerald-800">
+                  اضغط لاختيار ملف (PDF / صورة / Word)
+                </span>
+                <span className="text-[10px] text-slate-400">حتى 25 ميغابايت</span>
+                <input
+                  type="file"
+                  hidden
+                  disabled={isSending}
+                  accept=".pdf,.jpg,.jpeg,.png,.docx,.doc"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) {
+                      if (f.size > 25 * 1024 * 1024) {
+                        toastError('حجم الملف يتجاوز الحد المسموح (25 ميغابايت)');
+                        return;
+                      }
+                      setAttachedFile(f);
+                    }
+                  }}
+                />
+              </label>
+            ) : (
+              <div className="flex items-center justify-between p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl">
+                <div className="flex items-center gap-2 min-w-0">
+                  <FileText className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-emerald-950 truncate max-w-[200px]">
+                      {attachedFile.name}
+                    </div>
+                    <div className="text-[10px] text-emerald-600">
+                      {attachedFile.size >= 1024 * 1024
+                        ? `${(attachedFile.size / (1024 * 1024)).toFixed(1)} ميغابايت`
+                        : `${Math.round(attachedFile.size / 1024)} كيلوبايت`}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAttachedFile(null)}
+                  disabled={isSending}
+                  className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition"
+                  title="إزالة الملف"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
           <Button type="button" variant="outline" onClick={onClose} disabled={isSending}>

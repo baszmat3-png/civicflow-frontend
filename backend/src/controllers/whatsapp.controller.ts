@@ -101,15 +101,37 @@ export const getLogs = async (req: Request, res: Response, next: NextFunction) =
   }
 };
 
+const getPublicFileUrl = (req: Request, filename: string): string => {
+  const publicBase = process.env.PUBLIC_URL || process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+  return `${publicBase.replace(/\/$/, '')}/uploads/${filename}`;
+};
+
 export const sendManualWhatsApp = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const data = sendManualSchema.parse(req.body);
+    const phoneNumber = req.body.phoneNumber || req.body.phone || req.body.to;
+    const message = req.body.message || req.body.customText || '';
+    const templateKey = req.body.templateKey;
+    const requestId = req.body.requestId;
+
+    if (!phoneNumber || !message) {
+      throw new AppError('رقم الهاتف ونص الرسالة مطلوبان', 400, 'INVALID_INPUT');
+    }
+
+    const document = req.file
+      ? {
+          url: getPublicFileUrl(req, req.file.filename),
+          filename: req.file.originalname,
+          localPath: req.file.path,
+          mimetype: req.file.mimetype
+        }
+      : undefined;
 
     const result = await whatsAppProvider.sendMessage({
-      to: data.phoneNumber,
-      message: data.message,
-      templateKey: data.templateKey,
-      requestId: data.requestId
+      to: phoneNumber,
+      message,
+      templateKey,
+      requestId,
+      document
     });
 
     if (!result.success) {
@@ -124,17 +146,60 @@ export const sendManualWhatsApp = async (req: Request, res: Response, next: Next
 
 export const sendBulkWhatsApp = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { recipients, message, templateKey } = req.body;
+    const message = req.body.message || '';
+    const templateKey = req.body.templateKey;
 
-    if (!Array.isArray(recipients) || recipients.length === 0) {
+    let recipientsList: any[] = [];
+    if (typeof req.body.recipients === 'string') {
+      try {
+        recipientsList = JSON.parse(req.body.recipients);
+      } catch {
+        recipientsList = [];
+      }
+    } else if (Array.isArray(req.body.recipients)) {
+      recipientsList = req.body.recipients;
+    } else if (req.body.reviewerIds || req.body.customerIds) {
+      let ids: string[] = [];
+      try {
+        ids = typeof req.body.reviewerIds === 'string' ? JSON.parse(req.body.reviewerIds) :
+              typeof req.body.customerIds === 'string' ? JSON.parse(req.body.customerIds) :
+              Array.isArray(req.body.reviewerIds) ? req.body.reviewerIds :
+              Array.isArray(req.body.customerIds) ? req.body.customerIds : [];
+      } catch {
+        ids = [];
+      }
+
+      if (ids.length > 0) {
+        const customers = await prisma.customer.findMany({
+          where: { id: { in: ids } }
+        });
+        recipientsList = customers.map((c) => ({
+          id: c.id,
+          phoneNumber: c.phone,
+          customerName: c.name,
+          customerPhone: c.phone
+        }));
+      }
+    }
+
+    if (!Array.isArray(recipientsList) || recipientsList.length === 0) {
       throw new AppError('يرجى تحديد مستلم واحد على الأقل', 400, 'NO_RECIPIENTS');
     }
+
+    const document = req.file
+      ? {
+          url: getPublicFileUrl(req, req.file.filename),
+          filename: req.file.originalname,
+          localPath: req.file.path,
+          mimetype: req.file.mimetype
+        }
+      : undefined;
 
     let successCount = 0;
     let failCount = 0;
     const errors: string[] = [];
 
-    for (const item of recipients) {
+    for (const item of recipientsList) {
       const phone = item.phoneNumber || item.customerPhone || item.phone;
       if (!phone) {
         failCount++;
@@ -155,7 +220,8 @@ export const sendBulkWhatsApp = async (req: Request, res: Response, next: NextFu
           to: phone,
           message: formattedMessage,
           templateKey: templateKey || 'bulk_custom_message',
-          requestId: item.requestId || item.id
+          requestId: item.requestId || item.id,
+          document
         });
         successCount++;
       } catch (err: any) {
@@ -166,8 +232,8 @@ export const sendBulkWhatsApp = async (req: Request, res: Response, next: NextFu
 
     return sendSuccess(
       res,
-      { successCount, failCount, total: recipients.length, errors },
-      `تم إرسال ${successCount} رسالة واتساب بنجاح من أصل ${recipients.length}`
+      { successCount, failCount, total: recipientsList.length, errors },
+      `تم إرسال ${successCount} رسالة واتساب بنجاح من أصل ${recipientsList.length}`
     );
   } catch (error) {
     next(error);
