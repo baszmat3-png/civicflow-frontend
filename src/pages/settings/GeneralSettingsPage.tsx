@@ -104,6 +104,7 @@ export const GeneralSettingsPage: React.FC = () => {
                 label="اسم النظام / المنصة (بالعربية)"
                 value={systemName}
                 onChange={(e) => setSystemName(e.target.value)}
+                placeholder="CivicFlow"
                 required
               />
 
@@ -111,14 +112,14 @@ export const GeneralSettingsPage: React.FC = () => {
                 label="الاسم الفرعي / الإنجليزي"
                 value={systemSubName}
                 onChange={(e) => setSystemSubName(e.target.value)}
-                required
+                placeholder="منظومة إدارة وتتبع معاملات المراجعين الحكومية"
               />
 
               <Input
                 label="رقم هاتف المكتب / السنترال"
                 value={officePhone}
                 onChange={(e) => setOfficePhone(e.target.value)}
-                required
+                placeholder="اتركه فارغاً أو أدخل رقم الهاتف"
               />
 
               <Input
@@ -126,19 +127,21 @@ export const GeneralSettingsPage: React.FC = () => {
                 type="email"
                 value={officeEmail}
                 onChange={(e) => setOfficeEmail(e.target.value)}
-                required
+                placeholder="support@civicflow.gov.iq"
               />
 
               <Input
                 label="الرقم الضريبي / السجل التجاري"
                 value={taxNumber}
                 onChange={(e) => setTaxNumber(e.target.value)}
+                placeholder="فارغ"
               />
 
               <Input
                 label="أوقات العمل الرسمية"
                 value={workingHours}
                 onChange={(e) => setWorkingHours(e.target.value)}
+                placeholder="08:00 ص - 04:00 م"
               />
 
               <div className="sm:col-span-2">
@@ -146,6 +149,7 @@ export const GeneralSettingsPage: React.FC = () => {
                   label="عنوان المقر الرئيسي"
                   value={officeAddress}
                   onChange={(e) => setOfficeAddress(e.target.value)}
+                  placeholder="العراق_بغداد"
                 />
               </div>
             </div>

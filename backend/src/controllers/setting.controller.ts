@@ -118,11 +118,12 @@ export const getSystemSettings = async (req: Request, res: Response, next: NextF
     }));
 
     const general = (generalSet?.value as any) || {
-      systemName: 'CivicFlow',
-      systemSubName: 'منظومة إدارة وتتبع معاملات المراجعين الحكومية',
-      officePhone: '+966 11 800 2000',
-      officeAddress: 'المملكة العربية السعودية - الرياض',
-      officeEmail: 'support@civicflow.gov.sa',
+      systemName: 'منظومة إدارة المعاملات',
+      systemSubName: 'منظومة إدارة وتتبع معاملات المراجعين',
+      officePhone: '',
+      taxNumber: '',
+      officeAddress: 'العراق_بغداد',
+      officeEmail: '',
       workingDays: ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'],
       workingHours: '08:00 ص - 04:00 م'
     };

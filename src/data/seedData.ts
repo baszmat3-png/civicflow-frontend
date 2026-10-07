@@ -258,12 +258,12 @@ export const initialAuditLogs: AuditLog[] = [];
 
 export const initialSystemSettings: SystemSettings = {
   general: {
-    systemName: 'نظام إدارة الصادر والوارد والمعاملات',
-    systemSubName: 'CivicFlow Administrative Platform',
-    officePhone: '+966 11 800 4422',
-    officeAddress: 'المملكة العربية السعودية - الرياض - طريق الملك فهد - البرج الإداري',
-    officeEmail: 'admin@civicflow.gov.sa',
-    taxNumber: '300192837400003',
+    systemName: 'CivicFlow',
+    systemSubName: 'منظومة إدارة وتتبع معاملات المراجعين الحكومية',
+    officePhone: '',
+    officeAddress: 'العراق_بغداد',
+    officeEmail: 'support@civicflow.gov.iq',
+    taxNumber: '',
     workingDays: ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'],
     workingHours: '08:00 ص - 04:00 م',
     logoUrl: ''

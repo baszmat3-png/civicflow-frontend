@@ -717,10 +717,10 @@ export async function seedDatabase() {
       value: {
         systemName: 'CivicFlow',
         systemSubName: 'منظومة إدارة وتتبع معاملات المراجعين الحكومية',
-        officePhone: '+966 11 800 2000',
-        officeAddress: 'المملكة العربية السعودية - الرياض - طريق الملك فهد',
-        officeEmail: 'support@civicflow.gov.sa',
-        taxNumber: '300998877660003',
+        officePhone: '',
+        officeAddress: 'العراق_بغداد',
+        officeEmail: 'support@civicflow.gov.iq',
+        taxNumber: '',
         workingDays: ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'],
         workingHours: '08:00 ص - 04:00 م'
       }

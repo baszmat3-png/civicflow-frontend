@@ -28,7 +28,7 @@ export interface WordRequestData {
 
 /* ───────── 1. إعدادات الكليشة (توقيت بغداد UTC+3) ───────── */
 const FONT = 'Arial';                          // الخط العربي المعتمد
-const OFFICE_TITLE = 'مدير مكتب النائب الأول';
+const OFFICE_TITLE = 'مدير مكتب النائب';
 // الصفحة A4 — الهوامش بالتويبس (1 ملم ≈ 56.7)
 const PAGE = { width: 11906, height: 16838 };
 const MARGIN_RIGHT = 1650;                     // ≈ 29 ملم
