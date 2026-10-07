@@ -190,23 +190,22 @@ export async function printOfficialLetterWord(req: WordRequestData) {
   children.push(
     para(
       [run('التفضل بالاطلاع وامكانية تلبية طلبه اصوليا واعلامنا .. مع التقدير.', { bold: true, size: 26 })],
-      { line: 400, after: 1800, start: 935 }
+      { line: 400, after: 2200, start: 0 }
     )
   );
 
-  // 7. التوقيع: مدير المكتب + التاريخ
+  // 7. التوقيع: مدير المكتب + التاريخ (أسفل اليسار)
   children.push(
     para([run(OFFICE_TITLE, { bold: true, size: 26 })], {
-      align: AlignmentType.CENTER,
+      align: AlignmentType.LEFT,
       line: 400,
-      start: 5050
+      after: 80
     })
   );
   children.push(
     para([run(formattedArabicDate, { bold: true, size: 26 })], {
-      align: AlignmentType.CENTER,
-      line: 400,
-      start: 5050
+      align: AlignmentType.LEFT,
+      line: 400
     })
   );
 
