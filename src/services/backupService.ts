@@ -40,8 +40,8 @@ export const backupService = {
     if (backupFile) {
       const formData = new FormData();
       formData.append('backupFile', backupFile);
-      return apiClient.post('/backup/restore', formData);
+      return apiClient.post('/backup/restore', formData, { timeoutMs: 180000 });
     }
-    return apiClient.post('/backup/restore', payload);
+    return apiClient.post('/backup/restore', payload, { timeoutMs: 180000 });
   }
 };
