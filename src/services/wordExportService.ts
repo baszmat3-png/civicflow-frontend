@@ -119,30 +119,9 @@ export async function printOfficialLetterWord(req: WordRequestData) {
   const dateStr = getBaghdadDateString(req.submitDate);
   const formattedArabicDate = formatDate(req.submitDate);
 
-  // تذييل الصفحة الرسمي (Footer)
+  // تذييل الصفحة الرسمي (Footer): الهامش والنسخ فقط
   const footer = new Footer({
     children: [
-      // بيانات المراجع أسفل اليسار
-      new Paragraph({
-        alignment: AlignmentType.LEFT,
-        bidirectional: true,
-        spacing: { after: 60 },
-        children: [run(`المراجع: ${req.applicantName || '---'}`, { bold: true, size: 22 })]
-      }),
-      new Paragraph({
-        alignment: AlignmentType.LEFT,
-        bidirectional: true,
-        spacing: { after: 60 },
-        children: [run(`رقم الهاتف: ${req.applicantPhone || '---'}`, { size: 22 })]
-      }),
-      new Paragraph({
-        alignment: AlignmentType.LEFT,
-        bidirectional: true,
-        spacing: { after: 120 },
-        children: [run(`التاريخ: ${dateStr}`, { size: 22 })]
-      }),
-
-      // الهامش / النسخ
       new Paragraph({
         ...rtl,
         spacing: { after: 60 },
