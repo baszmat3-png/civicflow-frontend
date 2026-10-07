@@ -1,5 +1,6 @@
 import { PrismaClient, PriorityLevel, UserStatus, CustomerStatus } from '@prisma/client';
 import bcrypt from 'bcrypt';
+import { IRAQI_MINISTRIES } from '../src/constants/iraqMinistries.js';
 
 const prisma = new PrismaClient();
 
@@ -238,87 +239,29 @@ async function main() {
   }
   console.log(`✅ Seeded ${statusesData.length} request statuses.`);
 
-  // 6. Seed Ministries & SLA
-  const ministriesData = [
-    {
-      name: 'وزارة الصحة',
-      code: 'MOH',
-      slaDays: 7,
-      status: UserStatus.ACTIVE,
-      notes: 'معاملات التراخيص الطبية، التقارير والشهادات الصحية، والعلاج على نفقة الدولة.',
-      contactPerson: 'د. عبد العزيز الشمري',
-      contactPhone: '+966 11 212 5555',
-      contactEmail: 'contact@moh.gov.sa',
-      sla: { defaultDays: 7, urgentDays: 3, importantDays: 5, autoAlertBeforeDays: 2 }
-    },
-    {
-      name: 'وزارة الداخلية',
-      code: 'MOI',
-      slaDays: 5,
-      status: UserStatus.ACTIVE,
-      notes: 'معاملات الأحوال المدنية، تصاريح الإقامة، التأشيرات والوثائق الأمنية.',
-      contactPerson: 'العقيد فيصل القحطاني',
-      contactPhone: '+966 11 401 1111',
-      contactEmail: 'support@moi.gov.sa',
-      sla: { defaultDays: 5, urgentDays: 2, importantDays: 3, autoAlertBeforeDays: 1 }
-    },
-    {
-      name: 'وزارة العدل',
-      code: 'MOJ',
-      slaDays: 10,
-      status: UserStatus.ACTIVE,
-      notes: 'حجج الاستحكام، الوكالات الشرعية، تصديق العقود وتوثيق المعاملات.',
-      contactPerson: 'الشيخ إبراهيم الدوسري',
-      contactPhone: '+966 11 405 7777',
-      contactEmail: 'info@moj.gov.sa',
-      sla: { defaultDays: 10, urgentDays: 4, importantDays: 7, autoAlertBeforeDays: 2 }
-    },
-    {
-      name: 'وزارة الخارجية',
-      code: 'MOFA',
-      slaDays: 8,
-      status: UserStatus.ACTIVE,
-      notes: 'تصديق الوثائق الدولية، التأشيرات الدبلوماسية، ومعاملات الجاليات.',
-      contactPerson: 'أ. طارق الماجد',
-      contactPhone: '+966 11 406 7777',
-      contactEmail: 'consular@mofa.gov.sa',
-      sla: { defaultDays: 8, urgentDays: 3, importantDays: 5, autoAlertBeforeDays: 2 }
-    },
-    {
-      name: 'وزارة التعليم',
-      code: 'MOE',
-      slaDays: 6,
-      status: UserStatus.ACTIVE,
-      notes: 'معادلة الشهادات الأكاديمية، تراخيص المدارس الأهلية، والابتعاث الخارجي.',
-      contactPerson: 'د. منيرة العتيبي',
-      contactPhone: '+966 11 475 3000',
-      contactEmail: 'relations@moe.gov.sa',
-      sla: { defaultDays: 6, urgentDays: 2, importantDays: 4, autoAlertBeforeDays: 2 }
-    },
-    {
-      name: 'وزارة التضامن الاجتماعي',
-      code: 'MOSD',
-      slaDays: 12,
-      status: UserStatus.ACTIVE,
-      notes: 'الإعانات الاجتماعية، دعم الأسر المنتجة، وتراخيص الجمعيات الخيرية.',
-      contactPerson: 'أ. سامي الجبير',
-      contactPhone: '+966 11 477 8888',
-      contactEmail: 'social@mosd.gov.sa',
-      sla: { defaultDays: 12, urgentDays: 5, importantDays: 8, autoAlertBeforeDays: 3 }
-    }
-  ];
-
-  for (const m of ministriesData) {
-    const { sla, ...minDetails } = m;
-    const min = await prisma.ministry.create({ data: minDetails });
+  // 6. Seed Ministries & SLA (All 23 Iraqi Ministries)
+  for (const m of IRAQI_MINISTRIES) {
+    const min = await prisma.ministry.create({
+      data: {
+        name: m.name,
+        code: m.code,
+        slaDays: m.slaDays,
+        status: UserStatus.ACTIVE,
+        notes: m.notes,
+        contactPerson: m.contactPerson
+      }
+    });
     await prisma.sLASetting.create({
       data: {
         ministryId: min.id,
-        ...sla
+        defaultDays: m.slaDays || 7,
+        urgentDays: Math.max(1, Math.floor((m.slaDays || 7) / 2)),
+        importantDays: Math.max(2, (m.slaDays || 7) - 2),
+        autoAlertBeforeDays: 2
       }
     });
   }
-  console.log(`✅ Seeded ${ministriesData.length} ministries with SLA configurations.`);
+  console.log(`✅ Seeded ${IRAQI_MINISTRIES.length} Iraqi ministries with SLA configurations.`);
 
   // 7. Seed WhatsApp Templates
   const waTemplates = [

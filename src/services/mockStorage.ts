@@ -28,7 +28,7 @@ const STORAGE_KEYS = {
   NOTIFICATIONS: 'civicflow_notifications',
   AUDIT_LOGS: 'civicflow_audit_logs',
   SETTINGS: 'civicflow_settings',
-  INITIALIZED: 'civicflow_initialized_v5'
+  INITIALIZED: 'civicflow_initialized_v6'
 };
 
 export const initStorage = () => {

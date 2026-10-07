@@ -9,93 +9,22 @@ import {
   SystemSettings,
   City
 } from '../types';
+import { IRAQI_MINISTRIES } from '../constants/iraqMinistries';
 
-export const initialMinistries: Ministry[] = [
-  {
-    id: 'min-1',
-    name: 'وزارة الصحة',
-    code: 'MOH',
-    slaDays: 7,
-    activeRequestsCount: 0,
-    completedRequestsCount: 0,
-    overdueRequestsCount: 0,
-    status: 'نشط',
-    notes: 'معاملات التراخيص الطبية، التقارير والشهادات الصحية، والعلاج على نفقة الدولة.',
-    contactPerson: 'د. عبد العزيز الشمري',
-    contactPhone: '+966 11 212 5555',
-    contactEmail: 'contact@moh.gov.sa'
-  },
-  {
-    id: 'min-2',
-    name: 'وزارة الداخلية',
-    code: 'MOI',
-    slaDays: 5,
-    activeRequestsCount: 0,
-    completedRequestsCount: 0,
-    overdueRequestsCount: 0,
-    status: 'نشط',
-    notes: 'معاملات الأحوال المدنية، تصاريح الإقامة، التأشيرات والوثائق الأمنية.',
-    contactPerson: 'العقيد فيصل القحطاني',
-    contactPhone: '+966 11 401 1111',
-    contactEmail: 'support@moi.gov.sa'
-  },
-  {
-    id: 'min-3',
-    name: 'وزارة العدل',
-    code: 'MOJ',
-    slaDays: 10,
-    activeRequestsCount: 0,
-    completedRequestsCount: 0,
-    overdueRequestsCount: 0,
-    status: 'نشط',
-    notes: 'حجج الاستحكام، الوكالات الشرعية، تصديق العقود وتوثيق المعاملات.',
-    contactPerson: 'الشيخ إبراهيم الدوسري',
-    contactPhone: '+966 11 405 7777',
-    contactEmail: 'info@moj.gov.sa'
-  },
-  {
-    id: 'min-4',
-    name: 'وزارة الخارجية',
-    code: 'MOFA',
-    slaDays: 8,
-    activeRequestsCount: 0,
-    completedRequestsCount: 0,
-    overdueRequestsCount: 0,
-    status: 'نشط',
-    notes: 'تصديق الوثائق الدولية، التأشيرات الدبلوماسية، ومعاملات الجاليات.',
-    contactPerson: 'أ. طارق الماجد',
-    contactPhone: '+966 11 406 7777',
-    contactEmail: 'consular@mofa.gov.sa'
-  },
-  {
-    id: 'min-5',
-    name: 'وزارة التعليم',
-    code: 'MOE',
-    slaDays: 6,
-    activeRequestsCount: 0,
-    completedRequestsCount: 0,
-    overdueRequestsCount: 0,
-    status: 'نشط',
-    notes: 'معادلة الشهادات الأكاديمية، تراخيص المدارس الأهلية، والابتعاث الخارجي.',
-    contactPerson: 'د. منيرة العتيبي',
-    contactPhone: '+966 11 475 3000',
-    contactEmail: 'relations@moe.gov.sa'
-  },
-  {
-    id: 'min-6',
-    name: 'وزارة التضامن الاجتماعي',
-    code: 'MOSD',
-    slaDays: 12,
-    activeRequestsCount: 0,
-    completedRequestsCount: 0,
-    overdueRequestsCount: 0,
-    status: 'نشط',
-    notes: 'الإعانات الاجتماعية، دعم الأسر المنتجة، وتراخيص الجمعيات الخيرية.',
-    contactPerson: 'أ. سامي الجبير',
-    contactPhone: '+966 11 477 8888',
-    contactEmail: 'social@mosd.gov.sa'
-  }
-];
+export const initialMinistries: Ministry[] = IRAQI_MINISTRIES.map((m, idx) => ({
+  id: `min-${idx + 1}`,
+  name: m.name,
+  code: m.code,
+  slaDays: m.slaDays,
+  activeRequestsCount: 0,
+  completedRequestsCount: 0,
+  overdueRequestsCount: 0,
+  status: 'نشط',
+  notes: m.notes,
+  contactPerson: m.contactPerson,
+  contactPhone: '',
+  contactEmail: ''
+}));
 
 export const initialCustomers: Customer[] = [];
 
@@ -281,14 +210,15 @@ export const initialSystemSettings: SystemSettings = {
     { id: 'st-10', name: 'تم التسليم', color: 'emerald', order: 10, isActive: true },
     { id: 'st-11', name: 'مغلق', color: 'zinc', order: 11, isActive: true, isTerminal: true }
   ],
-  sla: [
-    { id: 'sla-1', ministryId: 'min-1', ministryName: 'وزارة الصحة', defaultDays: 7, urgentDays: 3, importantDays: 5, autoAlertBeforeDays: 2 },
-    { id: 'sla-2', ministryId: 'min-2', ministryName: 'وزارة الداخلية', defaultDays: 5, urgentDays: 2, importantDays: 4, autoAlertBeforeDays: 1 },
-    { id: 'sla-3', ministryId: 'min-3', ministryName: 'وزارة العدل', defaultDays: 10, urgentDays: 4, importantDays: 7, autoAlertBeforeDays: 2 },
-    { id: 'sla-4', ministryId: 'min-4', ministryName: 'وزارة الخارجية', defaultDays: 8, urgentDays: 3, importantDays: 6, autoAlertBeforeDays: 2 },
-    { id: 'sla-5', ministryId: 'min-5', ministryName: 'وزارة التعليم', defaultDays: 6, urgentDays: 3, importantDays: 4, autoAlertBeforeDays: 1 },
-    { id: 'sla-6', ministryId: 'min-6', ministryName: 'وزارة التضامن الاجتماعي', defaultDays: 12, urgentDays: 5, importantDays: 8, autoAlertBeforeDays: 3 }
-  ],
+  sla: IRAQI_MINISTRIES.map((m, idx) => ({
+    id: `sla-${idx + 1}`,
+    ministryId: `min-${idx + 1}`,
+    ministryName: m.name,
+    defaultDays: m.slaDays,
+    urgentDays: Math.max(1, Math.floor(m.slaDays / 2)),
+    importantDays: Math.max(2, m.slaDays - 2),
+    autoAlertBeforeDays: 2
+  })),
   whatsapp: {
     isConnected: true,
     phoneNumber: '+966 50 123 9988',

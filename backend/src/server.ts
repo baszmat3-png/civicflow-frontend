@@ -8,6 +8,8 @@ import { seedDatabase } from './seed.js';
 import { verifySmtpConnection } from './services/email.service.js';
 import { ensureSystemPermissions } from './controllers/role.controller.js';
 
+import { IRAQI_MINISTRIES, DEFAULT_REQUEST_TYPES } from './constants/iraqMinistries.js';
+
 export const IRAQI_GOVERNORATES = [
   'دهوك',
   'نينوى',
@@ -61,6 +63,105 @@ async function ensureIraqiGovernorates() {
     console.log('✅ Ensured all 19 Iraqi Governorates are registered and active in the database.');
   } catch (err) {
     console.warn('⚠️ Governorates sync notice:', err);
+  }
+}
+
+async function ensureIraqiMinistries() {
+  try {
+    const { UserStatus } = await import('@prisma/client');
+    const iraqiMinistryNames = IRAQI_MINISTRIES.map((m) => m.name);
+
+    // 1. Deactivate non-standard ministries
+    await prisma.ministry.updateMany({
+      where: {
+        name: {
+          notIn: iraqiMinistryNames
+        }
+      },
+      data: { status: UserStatus.INACTIVE }
+    });
+
+    // 2. Ensure all 23 Iraqi Ministries exist, are ACTIVE, and have SLA records
+    for (const item of IRAQI_MINISTRIES) {
+      const existing = await prisma.ministry.findFirst({
+        where: {
+          OR: [
+            { name: { equals: item.name, mode: 'insensitive' } },
+            { code: { equals: item.code, mode: 'insensitive' } }
+          ]
+        }
+      });
+
+      let ministryId = '';
+      if (!existing) {
+        const created = await prisma.ministry.create({
+          data: {
+            name: item.name,
+            code: item.code,
+            slaDays: item.slaDays,
+            notes: item.notes,
+            contactPerson: item.contactPerson,
+            status: UserStatus.ACTIVE
+          }
+        });
+        ministryId = created.id;
+      } else {
+        ministryId = existing.id;
+        await prisma.ministry.update({
+          where: { id: existing.id },
+          data: {
+            name: item.name,
+            code: item.code,
+            notes: item.notes,
+            contactPerson: item.contactPerson,
+            status: UserStatus.ACTIVE
+          }
+        });
+      }
+
+      // Ensure SLA setting exists
+      const existingSla = await prisma.sLASetting.findUnique({
+        where: { ministryId }
+      });
+      if (!existingSla) {
+        await prisma.sLASetting.create({
+          data: {
+            ministryId,
+            defaultDays: item.slaDays || 7,
+            urgentDays: Math.max(1, Math.floor((item.slaDays || 7) / 2)),
+            importantDays: Math.max(2, (item.slaDays || 7) - 2),
+            autoAlertBeforeDays: 2
+          }
+        });
+      }
+    }
+    console.log(`✅ Ensured all ${IRAQI_MINISTRIES.length} Iraqi Ministries are registered and active in the database.`);
+  } catch (err) {
+    console.warn('⚠️ Ministries sync notice:', err);
+  }
+}
+
+async function ensureDefaultRequestTypes() {
+  try {
+    const { UserStatus } = await import('@prisma/client');
+    for (const name of DEFAULT_REQUEST_TYPES) {
+      const existing = await prisma.requestType.findFirst({
+        where: { name: { equals: name, mode: 'insensitive' } }
+      });
+      if (!existing) {
+        await prisma.requestType.create({
+          data: { name, status: UserStatus.ACTIVE }
+        });
+      } else if (existing.status !== UserStatus.ACTIVE) {
+        await prisma.requestType.update({
+          where: { id: existing.id },
+          data: { status: UserStatus.ACTIVE }
+        });
+      }
+    }
+    console.log(`✅ Ensured all default request types are registered and active in the database.`);
+  } catch (err) {
+    console.warn('⚠️ Request types sync notice:', err);
   }
 }
 
@@ -198,9 +299,11 @@ async function startServer() {
       console.warn('⚠️ Seeding check notice:', seedErr);
     }
 
-    // Ensure real accounts, Iraqi governorates, and RBAC permissions exist
+    // Ensure real accounts, Iraqi governorates, Iraqi ministries, request types, and RBAC permissions exist
     await ensureRealAccounts();
     await ensureIraqiGovernorates();
+    await ensureIraqiMinistries();
+    await ensureDefaultRequestTypes();
     await ensureSystemPermissions();
 
     // Start background jobs (SLA checker + Automated daily database backups + Appointment 30-min WhatsApp reminders)
