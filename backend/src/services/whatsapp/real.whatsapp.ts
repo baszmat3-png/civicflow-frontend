@@ -73,7 +73,13 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
 
     // 1. استخدام WPSender الرسمي في حال توفر المفتاح
     if (apiKey && apiKey.startsWith('wps_')) {
-      console.log(`📡 [WP SENDER DISPATCH] Sending WhatsApp message from ${senderPhone} to: ${formattedPhone} via ${apiUrl} ${options.document ? `(with document: ${options.document.filename})` : ''}`);
+      const isImg = Boolean(
+        options.document?.isImage ||
+        options.document?.mimetype?.startsWith('image/') ||
+        /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(options.document?.filename || '')
+      );
+
+      console.log(`📡 [WP SENDER DISPATCH] Sending WhatsApp message from ${senderPhone} to: ${formattedPhone} via ${apiUrl} ${options.document ? `(with ${isImg ? 'image' : 'document'}: ${options.document.filename})` : ''}`);
       try {
         const payload: any = {
           api_key: apiKey,
@@ -85,15 +91,44 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
           from: senderPhone,
           account: senderPhone,
           sender_phone: senderPhone,
-          message: options.message
+          message: options.message,
+          caption: options.message
         };
 
-        if (options.document?.url) {
-          payload.document = options.document.url;
-          payload.document_url = options.document.url;
-          payload.file = options.document.url;
+        if (options.document) {
+          const docUrl = options.document.url || '';
+          const base64Str = options.document.base64 ? `data:${options.document.mimetype || 'image/jpeg'};base64,${options.document.base64}` : undefined;
+
+          payload.type = isImg ? 'image' : 'document';
+          payload.media_type = isImg ? 'image' : 'document';
           payload.filename = options.document.filename;
-          payload.caption = options.message;
+
+          if (docUrl) {
+            payload.url = docUrl;
+            payload.media_url = docUrl;
+            payload.media = docUrl;
+            payload.file = docUrl;
+            payload.file_url = docUrl;
+            payload.attachment = docUrl;
+            if (isImg) {
+              payload.image = docUrl;
+              payload.image_url = docUrl;
+            } else {
+              payload.document = docUrl;
+              payload.document_url = docUrl;
+            }
+          }
+
+          if (base64Str) {
+            payload.base64 = options.document.base64;
+            payload.data = base64Str;
+            if (!docUrl) {
+              payload.media = base64Str;
+              payload.file = base64Str;
+              if (isImg) payload.image = base64Str;
+              else payload.document = base64Str;
+            }
+          }
         }
 
         const response = await fetch(apiUrl, {
@@ -148,27 +183,47 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
     const ultraToken = (process.env.ULTRAMSG_TOKEN || (env as any).ULTRAMSG_TOKEN || '').trim();
 
     if (ultraInstance && ultraToken) {
-      const isDocument = Boolean(options.document?.url);
+      const isDocument = Boolean(options.document?.url || options.document?.base64);
+      const isImg = isDocument && Boolean(
+        options.document?.isImage ||
+        options.document?.mimetype?.startsWith('image/') ||
+        /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(options.document?.filename || '')
+      );
+
       const ultraUrl = isDocument
-        ? `https://api.ultramsg.com/${ultraInstance}/messages/document`
+        ? (isImg
+            ? `https://api.ultramsg.com/${ultraInstance}/messages/image`
+            : `https://api.ultramsg.com/${ultraInstance}/messages/document`)
         : `https://api.ultramsg.com/${ultraInstance}/messages/chat`;
 
       console.log(`📡 [ULTRAMSG DISPATCH] Fallback WhatsApp message to: ${formattedPhone} via ${ultraUrl}`);
 
       try {
-        const params = isDocument
-          ? {
+        let params: any;
+        if (isDocument) {
+          if (isImg) {
+            params = {
+              token: ultraToken,
+              to: formattedPhone,
+              image: options.document?.url || (options.document?.base64 ? `data:${options.document.mimetype || 'image/jpeg'};base64,${options.document.base64}` : ''),
+              caption: options.message || ''
+            };
+          } else {
+            params = {
               token: ultraToken,
               to: formattedPhone,
               filename: options.document?.filename || 'document.pdf',
-              document: options.document?.url || '',
+              document: options.document?.url || (options.document?.base64 ? `data:${options.document.mimetype || 'application/pdf'};base64,${options.document.base64}` : ''),
               caption: options.message || ''
-            }
-          : {
-              token: ultraToken,
-              to: formattedPhone,
-              body: options.message
             };
+          }
+        } else {
+          params = {
+            token: ultraToken,
+            to: formattedPhone,
+            body: options.message
+          };
+        }
 
         const response = await fetch(ultraUrl, {
           method: 'POST',

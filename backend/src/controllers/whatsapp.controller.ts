@@ -101,9 +101,50 @@ export const getLogs = async (req: Request, res: Response, next: NextFunction) =
   }
 };
 
+import fs from 'fs';
+
 const getPublicFileUrl = (req: Request, filename: string): string => {
-  const publicBase = process.env.PUBLIC_URL || process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+  let publicBase = process.env.PUBLIC_URL || process.env.BACKEND_URL;
+  if (!publicBase) {
+    const host = req.get('host') || 'localhost:5000';
+    const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+    if (isLocal) {
+      publicBase = `http://${host}`;
+    } else {
+      // Force HTTPS in production (Render / Cloud reverse proxy)
+      publicBase = `https://${host}`;
+    }
+  }
   return `${publicBase.replace(/\/$/, '')}/uploads/${filename}`;
+};
+
+const buildDocumentAttachment = (req: Request, file?: Express.Multer.File) => {
+  if (!file) return undefined;
+  
+  const url = getPublicFileUrl(req, file.filename);
+  const isImage = Boolean(
+    file.mimetype?.startsWith('image/') ||
+    /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(file.originalname)
+  );
+
+  let base64: string | undefined = undefined;
+  try {
+    if (file.path && fs.existsSync(file.path)) {
+      const buf = fs.readFileSync(file.path);
+      base64 = buf.toString('base64');
+    }
+  } catch (err) {
+    console.warn('Could not read file for base64:', err);
+  }
+
+  return {
+    url,
+    filename: file.originalname,
+    localPath: file.path,
+    mimetype: file.mimetype,
+    base64,
+    isImage
+  };
 };
 
 export const sendManualWhatsApp = async (req: Request, res: Response, next: NextFunction) => {
@@ -117,14 +158,7 @@ export const sendManualWhatsApp = async (req: Request, res: Response, next: Next
       throw new AppError('رقم الهاتف ونص الرسالة مطلوبان', 400, 'INVALID_INPUT');
     }
 
-    const document = req.file
-      ? {
-          url: getPublicFileUrl(req, req.file.filename),
-          filename: req.file.originalname,
-          localPath: req.file.path,
-          mimetype: req.file.mimetype
-        }
-      : undefined;
+    const document = buildDocumentAttachment(req, req.file);
 
     const result = await whatsAppProvider.sendMessage({
       to: phoneNumber,
@@ -186,14 +220,7 @@ export const sendBulkWhatsApp = async (req: Request, res: Response, next: NextFu
       throw new AppError('يرجى تحديد مستلم واحد على الأقل', 400, 'NO_RECIPIENTS');
     }
 
-    const document = req.file
-      ? {
-          url: getPublicFileUrl(req, req.file.filename),
-          filename: req.file.originalname,
-          localPath: req.file.path,
-          mimetype: req.file.mimetype
-        }
-      : undefined;
+    const document = buildDocumentAttachment(req, req.file);
 
     let successCount = 0;
     let failCount = 0;

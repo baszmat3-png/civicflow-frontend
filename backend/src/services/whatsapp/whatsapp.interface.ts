@@ -3,6 +3,8 @@ export interface WhatsAppDocumentAttachment {
   filename: string;
   localPath?: string;
   mimetype?: string;
+  base64?: string;
+  isImage?: boolean;
 }
 
 export interface SendWhatsAppOptions {
