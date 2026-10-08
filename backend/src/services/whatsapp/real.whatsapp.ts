@@ -133,7 +133,8 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
             }
           }
 
-          if (rawBase64) {
+          // Only attach inline base64 if file is very small (< 300KB) to avoid HTTP 413 Payload Too Large
+          if (rawBase64 && rawBase64.length < 400000) {
             payload.base64 = rawBase64;
             payload.media_base64 = rawBase64;
             payload.data = base64DataUri;

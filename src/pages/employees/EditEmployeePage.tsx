@@ -23,15 +23,17 @@ export const EditEmployeePage: React.FC = () => {
   const [department, setDepartment] = useState('');
   const [status, setStatus] = useState<'نشط' | 'غير نشط'>('نشط');
   const [isLoading, setIsLoading] = useState(false);
+  const initializedIdRef = React.useRef<string | null>(null);
 
   useEffect(() => {
-    if (employee) {
-      setName(employee.name);
-      setEmail(employee.email);
-      setPhone(employee.phone);
-      setRoleId(employee.roleId);
+    if (employee && initializedIdRef.current !== employee.id) {
+      initializedIdRef.current = employee.id;
+      setName(employee.name || '');
+      setEmail(employee.email || '');
+      setPhone(employee.phone || '');
+      setRoleId(employee.roleId || '');
       setDepartment(employee.department || '');
-      setStatus(employee.status);
+      setStatus(employee.status || 'نشط');
     }
   }, [employee]);
 

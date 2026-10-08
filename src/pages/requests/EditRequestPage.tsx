@@ -28,17 +28,19 @@ export const EditRequestPage: React.FC = () => {
   const [expectedDate, setExpectedDate] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const initializedIdRef = React.useRef<string | null>(null);
 
   useEffect(() => {
-    if (request) {
-      setTitle(request.title);
-      setDetails(request.details);
-      setRequestType(request.requestType);
-      setMinistryId(request.ministryId);
-      setPriority(request.priority);
-      setAssignedEmployeeId(request.assignedEmployeeId);
-      setReceiveDate(request.receiveDate);
-      setExpectedDate(request.expectedCompletionDate);
+    if (request && initializedIdRef.current !== request.id) {
+      initializedIdRef.current = request.id;
+      setTitle(request.title || '');
+      setDetails(request.details || '');
+      setRequestType(request.requestType || 'إصدار تصريح');
+      setMinistryId(request.ministryId || '');
+      setPriority(request.priority || 'عادي');
+      setAssignedEmployeeId(request.assignedEmployeeId || '');
+      setReceiveDate(request.receiveDate || '');
+      setExpectedDate(request.expectedCompletionDate || '');
       setInternalNotes(request.internalNotes || '');
     }
   }, [request]);

@@ -15,10 +15,10 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    // Sanitize filename and preserve extension
+    // Preserve extension and ensure ASCII safe disk filename
     const ext = path.extname(file.originalname).toLowerCase();
-    const baseName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_\u0600-\u06FF-]/g, '_');
-    const uniqueName = `${Date.now()}-${baseName}${ext}`;
+    const cleanExt = ext || (file.mimetype.startsWith('image/') ? '.jpg' : '.pdf');
+    const uniqueName = `doc_${Date.now()}_${Math.random().toString(36).substring(2, 9)}${cleanExt}`;
     cb(null, uniqueName);
   }
 });

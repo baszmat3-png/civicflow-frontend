@@ -25,13 +25,15 @@ export const EditMinistryPage: React.FC = () => {
   const [contactEmail, setContactEmail] = useState('');
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const initializedIdRef = React.useRef<string | null>(null);
 
   useEffect(() => {
-    if (ministry) {
-      setName(ministry.name);
-      setCode(ministry.code);
-      setSlaDays(ministry.slaDays);
-      setStatus(ministry.status);
+    if (ministry && initializedIdRef.current !== ministry.id) {
+      initializedIdRef.current = ministry.id;
+      setName(ministry.name || '');
+      setCode(ministry.code || '');
+      setSlaDays(ministry.slaDays || 7);
+      setStatus(ministry.status || 'نشط');
       setContactPerson(ministry.contactPerson || '');
       setContactPhone(ministry.contactPhone || '');
       setContactEmail(ministry.contactEmail || '');

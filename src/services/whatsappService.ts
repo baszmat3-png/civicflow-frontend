@@ -36,14 +36,14 @@ export const whatsappService = {
       if (templateKey) fd.append('templateKey', templateKey);
       if (requestId) fd.append('requestId', requestId);
       fd.append('document', document);
-      return apiClient.post('/whatsapp/send', fd);
+      return apiClient.post('/whatsapp/send', fd, { timeoutMs: 180000 });
     }
     return apiClient.post('/whatsapp/send', {
       phoneNumber,
       message,
       templateKey,
       requestId
-    });
+    }, { timeoutMs: 60000 });
   },
 
   sendBulkWhatsApp: async (
@@ -67,13 +67,13 @@ export const whatsappService = {
       fd.append('recipients', JSON.stringify(recipients));
       fd.append('message', message);
       if (templateKey) fd.append('templateKey', templateKey);
-      fd.append('document', document);
-      return apiClient.post('/whatsapp/send-bulk', fd);
+      if (document) fd.append('document', document);
+      return apiClient.post('/whatsapp/send-bulk', fd, { timeoutMs: 180000 });
     }
     return apiClient.post('/whatsapp/send-bulk', {
       recipients,
       message,
       templateKey
-    });
+    }, { timeoutMs: 60000 });
   }
 };
