@@ -218,7 +218,7 @@ export const getAppointments = async (req: Request, res: Response, next: NextFun
 export const updateAppointmentStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const { status, adminNotes } = req.body;
+    const { status, adminNotes, appointmentDate, timeSlot } = req.body;
 
     const existing = await prisma.appointment.findUnique({ where: { id } });
     if (!existing) {
@@ -229,7 +229,10 @@ export const updateAppointmentStatus = async (req: Request, res: Response, next:
       where: { id },
       data: {
         ...(status ? { status } : {}),
-        ...(adminNotes !== undefined ? { adminNotes } : {})
+        ...(status === 'CONFIRMED' ? { reminderSent: false } : {}),
+        ...(adminNotes !== undefined ? { adminNotes } : {}),
+        ...(appointmentDate ? { appointmentDate: new Date(appointmentDate), reminderSent: false } : {}),
+        ...(timeSlot ? { timeSlot, reminderSent: false } : {})
       }
     });
 
@@ -275,6 +278,32 @@ export const updateAppointmentStatus = async (req: Request, res: Response, next:
     }
 
     return sendSuccess(res, updated, 'تم تحديث حالة الموعد بنجاح');
+  } catch (error) {
+    next(error);
+  }
+};
+
+// -------------------------------------------------------------
+// ADMIN: Send Manual Appointment Reminder Now
+// -------------------------------------------------------------
+export const sendManualAppointmentReminder = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const apt = await prisma.appointment.findUnique({ where: { id } });
+    if (!apt) {
+      throw new AppError('طلب الموعد غير موجود', 404, 'APPOINTMENT_NOT_FOUND');
+    }
+
+    const targetPersonTitle = apt.targetPerson === 'DEPUTY' ? 'سعادة النائب' : 'مدير المكتب';
+    const msg = `تذكير بموعد المقابلة ⏰\n\nالأخ/الأخت ${apt.customerName} المحترم،\nنود تذكيركم بموعدكم القادم لمقابلة (${targetPersonTitle}) بعد قليل في تمام الساعة (${apt.timeSlot}).\n\n📌 رقم الموعد: ${apt.appointmentNumber}\n📍 الموقع: مقر مكتب النائب\n\nيرجى الحضور في الوقت المحدد مع جلب كافة المستندات ذات الصلة. أهلاً وسهلاً بك.`;
+
+    await whatsappNotificationService.sendDirectWhatsApp(apt.customerPhone, msg, apt.id);
+    await prisma.appointment.update({
+      where: { id: apt.id },
+      data: { reminderSent: true }
+    });
+
+    return sendSuccess(res, { success: true }, `تم إرسال تذكير الموعد عبر واتساب إلى ${apt.customerPhone} بنجاح`);
   } catch (error) {
     next(error);
   }
