@@ -7,16 +7,21 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { RequestPriority, RequestType } from '../../types';
+import { RequestPriority, RequestType, RequestItem } from '../../types';
+import { requestService } from '../../services/requestService';
 import { ArrowRight, Save, FileText, User } from 'lucide-react';
 
 export const EditRequestPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { requests, ministries, employees, handleUpdateRequest } = useData();
+  const { requests, ministries, employees, handleUpdateRequest, loading } = useData();
   const { success, error } = useToast();
 
-  const request = requests.find((r) => r.id === id || r.requestNumber === id);
+  const [fetchedRequest, setFetchedRequest] = useState<RequestItem | null>(null);
+  const [isFetchingDirect, setIsFetchingDirect] = useState<boolean>(false);
+
+  const requestFromContext = requests.find((r) => r.id === id || r.requestNumber === id);
+  const request = requestFromContext || fetchedRequest;
 
   const [title, setTitle] = useState('');
   const [details, setDetails] = useState('');
@@ -28,11 +33,32 @@ export const EditRequestPage: React.FC = () => {
   const [expectedDate, setExpectedDate] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const initializedIdRef = React.useRef<string | null>(null);
 
+  // Route-locked initialization ref: Once initialized for the current URL route id, NEVER reset while user is typing!
+  const initializedRouteIdRef = React.useRef<string | null>(null);
+
+  // Fetch directly from API if page was refreshed and request is not in context
   useEffect(() => {
-    if (request && initializedIdRef.current !== request.id) {
-      initializedIdRef.current = request.id;
+    if (!requestFromContext && id && !isFetchingDirect && !fetchedRequest) {
+      setIsFetchingDirect(true);
+      requestService
+        .getRequestById(id)
+        .then((data) => {
+          if (data) setFetchedRequest(data);
+        })
+        .catch((err) => {
+          console.error('Failed to fetch request for edit:', err);
+        })
+        .finally(() => {
+          setIsFetchingDirect(false);
+        });
+    }
+  }, [id, requestFromContext, isFetchingDirect, fetchedRequest]);
+
+  // Initialize form state ONCE per route ID
+  useEffect(() => {
+    if (request && id && initializedRouteIdRef.current !== id) {
+      initializedRouteIdRef.current = id;
       setTitle(request.title || '');
       setDetails(request.details || '');
       setRequestType(request.requestType || 'إصدار تصريح');
@@ -43,7 +69,16 @@ export const EditRequestPage: React.FC = () => {
       setExpectedDate(request.expectedCompletionDate || '');
       setInternalNotes(request.internalNotes || '');
     }
-  }, [request]);
+  }, [request, id]);
+
+  if (isFetchingDirect || (loading && !request)) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 space-y-3">
+        <LoadingSpinner size="lg" />
+        <p className="text-xs text-slate-500 font-bold">جاري تحميل بيانات المعاملة للتعديل...</p>
+      </div>
+    );
+  }
 
   if (!request) {
     return (
@@ -195,26 +230,34 @@ export const EditRequestPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+              <label htmlFor="request-details" className="block text-sm font-semibold text-slate-700 mb-1.5">
                 تفاصيل ووصف المعاملة
               </label>
               <textarea
-                rows={3}
+                id="request-details"
+                name="details"
+                rows={4}
                 value={details}
                 onChange={(e) => setDetails(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                placeholder="اكتب تفاصيل ووصف المعاملة هنا..."
+                dir="rtl"
+                className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+              <label htmlFor="request-internal-notes" className="block text-sm font-semibold text-slate-700 mb-1.5">
                 ملاحظات داخلية
               </label>
               <textarea
-                rows={2}
+                id="request-internal-notes"
+                name="internalNotes"
+                rows={3}
                 value={internalNotes}
                 onChange={(e) => setInternalNotes(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                placeholder="أدخل أي ملاحظات داخلية خاصة بالمعاملة..."
+                dir="rtl"
+                className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition"
               />
             </div>
           </CardContent>
