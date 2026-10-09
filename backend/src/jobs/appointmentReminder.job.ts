@@ -57,11 +57,11 @@ export const checkAndSendAppointmentReminders = async () => {
       const slotTotalMinutes = slotHour * 60 + slotMin;
       const minutesUntilSlot = slotTotalMinutes - currentBaghdadMinutes;
 
-      // Send reminder ~30 mins before appointment: window of 15 to 45 mins ahead
-      if (minutesUntilSlot >= 15 && minutesUntilSlot <= 45) {
+      // Send reminder 1 hour before appointment: window of up to 70 mins ahead
+      if (minutesUntilSlot > 0 && minutesUntilSlot <= 70) {
         const targetPersonTitle = apt.targetPerson === 'DEPUTY' ? 'سعادة النائب' : 'مدير المكتب';
         const formattedTime = `${String(slotHour).padStart(2, '0')}:${String(slotMin).padStart(2, '0')}`;
-        const msg = `تذكير بموعد المقابلة ⏰\n\nالأخ/الأخت ${apt.customerName} المحترم،\nنود تذكيركم بموعدكم القادم لمقابلة (${targetPersonTitle}) بعد قليل في تمام الساعة (${formattedTime}).\n\n📌 رقم الموعد: ${apt.appointmentNumber}\n📍 الموقع: مقر مكتب النائب\n\nيرجى الحضور في الوقت المحدد مع جلب كافة المستندات ذات الصلة. أهلاً وسهلاً بك.`;
+        const msg = `تذكير بموعد المقابلة ⏰\n\nالأخ/الأخت ${apt.customerName} المحترم،\nنود تذكيركم بموعدكم القادم لمقابلة (${targetPersonTitle}) اليوم خلال ساعة في تمام الساعة (${formattedTime}).\n\n📌 رقم الموعد: ${apt.appointmentNumber}\n📍 الموقع: مقر مكتب النائب\n\nيرجى الحضور في الوقت المحدد مع جلب كافة المستندات ذات الصلة. أهلاً وسهلاً بك.`;
 
         try {
           await whatsappNotificationService.sendDirectWhatsApp(apt.customerPhone, msg, apt.id);
@@ -69,12 +69,12 @@ export const checkAndSendAppointmentReminders = async () => {
             where: { id: apt.id },
             data: { reminderSent: true }
           });
-          console.log(`✅ Sent 30-min WhatsApp reminder for appointment ${apt.appointmentNumber} (${formattedTime}) to ${apt.customerPhone} [Current Baghdad Time: ${String(curHour).padStart(2, '0')}:${String(curMin).padStart(2, '0')}]`);
+          console.log(`✅ Sent 1-hour WhatsApp reminder for appointment ${apt.appointmentNumber} (${formattedTime}) to ${apt.customerPhone} [Current Baghdad Time: ${String(curHour).padStart(2, '0')}:${String(curMin).padStart(2, '0')}]`);
         } catch (waErr) {
           console.warn(`⚠️ Failed sending WhatsApp reminder for appointment ${apt.appointmentNumber}:`, waErr);
         }
-      } else if (minutesUntilSlot < -30) {
-        // If the appointment time has already passed today by more than 30 mins, mark reminderSent = true
+      } else if (minutesUntilSlot < -20) {
+        // If the appointment time has already passed today by more than 20 mins, mark reminderSent = true
         await prisma.appointment.update({
           where: { id: apt.id },
           data: { reminderSent: true }
@@ -87,9 +87,14 @@ export const checkAndSendAppointmentReminders = async () => {
 };
 
 export const startAppointmentReminderJob = () => {
-  // Run every 2 minutes for precise ~30-min window detection
+  // Run immediately on boot
+  checkAndSendAppointmentReminders().catch((err) => {
+    console.warn('⚠️ Initial appointment reminder check error:', err);
+  });
+
+  // Run every 2 minutes for precise ~1-hour window detection
   cron.schedule('*/2 * * * *', async () => {
     await checkAndSendAppointmentReminders();
   });
-  console.log('⏰ Appointment 30-min WhatsApp reminder cron job initialized (2-minute interval, aligned with Baghdad UTC+3).');
+  console.log('⏰ Appointment 1-hour WhatsApp reminder cron job initialized (2-minute interval, aligned with Baghdad UTC+3).');
 };

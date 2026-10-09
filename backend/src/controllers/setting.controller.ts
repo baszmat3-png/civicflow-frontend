@@ -47,8 +47,8 @@ const DEFAULT_WA_TEMPLATES = [
   },
   {
     key: 'appointment_reminder',
-    title: 'تذكير بموعد المقابلة (قبل 30 دقيقة)',
-    content: 'تذكير: الأخ/الأخت {{customer_name}}، نود تذكيرك بموعد مقابلتك اليوم {{appointment_date}} في تمام الساعة {{appointment_time}} لمقابلة ({{target_person}}). نتمنى لك يوماً سعيداً.',
+    title: 'تذكير بموعد المقابلة (قبل ساعة)',
+    content: 'تذكير: الأخ/الأخت {{customer_name}}، نود تذكيرك بموعد مقابلتك اليوم {{appointment_date}} خلال ساعة في تمام الساعة {{appointment_time}} لمقابلة ({{target_person}}). نتمنى لك يوماً سعيداً.',
     variables: ['customer_name', 'appointment_number', 'target_person', 'appointment_date', 'appointment_time']
   },
   {

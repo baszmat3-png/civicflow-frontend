@@ -319,7 +319,7 @@ export const whatsappNotificationService = {
   },
 
   /**
-   * إرسال تذكير بالموعد قبل 30 دقيقة
+   * إرسال تذكير بالموعد قبل ساعة
    */
   sendAppointmentReminderWhatsApp: async (params: {
     to: string;
@@ -334,7 +334,7 @@ export const whatsappNotificationService = {
     try {
       const fallbackMessage = [
         `تذكير: الأخ/الأخت ${params.customerName} المحترم،`,
-        `نود تذكيركم بموعد مقابلتكم اليوم ${params.appointmentDate} في تمام الساعة ${params.appointmentTime} لمقابلة (${params.targetPerson}).`,
+        `نود تذكيركم بموعد مقابلتكم اليوم ${params.appointmentDate} خلال ساعة في تمام الساعة ${params.appointmentTime} لمقابلة (${params.targetPerson}).`,
         `📌 رقم الموعد: ${params.appointmentNumber}`,
         `نتمنى لكم يوماً سعيداً.`
       ].join('\n');
