@@ -259,11 +259,12 @@ export const WhatsAppSettingsPage: React.FC = () => {
                     helperText={gw?.hasApiKey ? 'المفتاح محفوظ. اتركه فارغاً للإبقاء عليه أو أدخل مفتاحاً جديداً لاستبداله.' : 'الصق المفتاح من لوحة المزوّد'}
                     icon={<KeyRound className="w-4 h-4" />}
                     autoComplete="off"
+                    className="pl-10"
                   />
                   <button
                     type="button"
                     onClick={() => setShowKey((v) => !v)}
-                    className="absolute left-3 top-[2.35rem] text-slate-400 hover:text-slate-700"
+                    className="absolute left-3 top-[2.6rem] text-slate-400 hover:text-slate-700"
                     aria-label="إظهار/إخفاء المفتاح"
                   >
                     {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}

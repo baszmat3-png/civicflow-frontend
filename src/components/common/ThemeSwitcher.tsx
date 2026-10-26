@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Palette, Check, Monitor, Type, Zap } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Palette, Check, Monitor, Type, Zap, X } from 'lucide-react';
 import { useTheme } from '../../theme/ThemeContext';
 import { THEMES, RAMPS, SYSTEM_THEME_ID, FontScale, ThemeDef } from '../../theme/themes';
 
@@ -29,19 +30,16 @@ interface Props {
 export const ThemeSwitcher: React.FC<Props> = ({ variant = 'inline' }) => {
   const { prefs, active, setTheme, setFontScale, setReduceMotion } = useTheme();
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
-    document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden'; // keep the page from scrolling behind the sheet
     return () => {
-      document.removeEventListener('mousedown', onDown);
       document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
     };
   }, [open]);
 
@@ -51,15 +49,15 @@ export const ThemeSwitcher: React.FC<Props> = ({ variant = 'inline' }) => {
     { id: 'lg', label: 'كبير' }
   ];
 
-  const wrapper =
-    variant === 'floating' ? 'fixed bottom-4 left-4 z-40 print:hidden' : 'relative print:hidden';
-  const popover =
+  const wrapper = variant === 'floating' ? 'fixed bottom-4 left-4 z-40 print:hidden' : 'relative print:hidden';
+  // Mobile: full-width bottom sheet that always fits the screen. Desktop: floating panel near the button.
+  const panelPos =
     variant === 'floating'
-      ? 'absolute bottom-full left-0 mb-2'
-      : 'absolute left-0 mt-2';
+      ? 'sm:bottom-20 sm:left-4 sm:top-auto'
+      : 'sm:top-[4.5rem] sm:left-4 sm:bottom-auto';
 
   return (
-    <div className={wrapper} ref={ref}>
+    <div className={wrapper}>
       <button
         onClick={() => setOpen((v) => !v)}
         title="المظهر والثيمات"
@@ -74,88 +72,107 @@ export const ThemeSwitcher: React.FC<Props> = ({ variant = 'inline' }) => {
         <Palette className="w-5 h-5" />
       </button>
 
-      {open && (
-        <div
-          className={`${popover} w-[19rem] sm:w-[22rem] max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-xl border border-slate-100 p-4 z-50 text-right`}
-          role="dialog"
-          aria-label="اختيار الثيم"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="font-bold text-sm text-slate-800">المظهر والثيمات</h4>
-            <span className="text-[11px] text-slate-500">{active.name}</span>
-          </div>
-
-          <button
-            onClick={() => setTheme(SYSTEM_THEME_ID)}
-            className={`w-full flex items-center gap-2 px-3 py-2 mb-3 rounded-xl border text-xs font-semibold transition ${
-              prefs.themeId === SYSTEM_THEME_ID
-                ? 'border-blue-500 bg-blue-50 text-blue-700'
-                : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-            }`}
-          >
-            <Monitor className="w-4 h-4" />
-            <span className="flex-1 text-right">تلقائي (حسب إعدادات الجهاز)</span>
-            {prefs.themeId === SYSTEM_THEME_ID && <Check className="w-4 h-4" />}
-          </button>
-
-          <div className="grid grid-cols-2 gap-2.5 max-h-72 overflow-y-auto pr-0.5">
-            {THEMES.map((t) => {
-              const selected = prefs.themeId === t.id;
-              return (
+      {open &&
+        createPortal(
+          <div className="fixed inset-0 z-[100]" dir="rtl">
+            <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} aria-hidden="true" />
+            <div
+              role="dialog"
+              aria-label="اختيار الثيم"
+              className={`absolute inset-x-0 bottom-0 max-h-[88dvh] sm:max-h-[80dvh] sm:inset-x-auto sm:w-[24rem] ${panelPos}
+                flex flex-col bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl border border-slate-100 text-right`}
+            >
+              {/* Sticky header */}
+              <div className="flex items-center justify-between px-4 pt-3 pb-2.5 border-b border-slate-100 shrink-0">
+                <div>
+                  <h4 className="font-bold text-sm text-slate-800">المظهر والثيمات</h4>
+                  <span className="text-[11px] text-slate-500">الحالي: {active.name}</span>
+                </div>
                 <button
-                  key={t.id}
-                  onClick={() => setTheme(t.id)}
-                  className={`text-right p-2 rounded-xl border-2 transition ${
-                    selected ? 'border-blue-500 bg-blue-50' : 'border-transparent bg-slate-50 hover:border-slate-200'
+                  onClick={() => setOpen(false)}
+                  aria-label="إغلاق"
+                  className="p-2 rounded-lg text-slate-500 hover:bg-slate-100"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Scrollable content */}
+              <div className="overflow-y-auto overscroll-contain px-4 py-3 space-y-4" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+                <button
+                  onClick={() => setTheme(SYSTEM_THEME_ID)}
+                  className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-semibold transition ${
+                    prefs.themeId === SYSTEM_THEME_ID
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-slate-200 text-slate-700 hover:bg-slate-50'
                   }`}
                 >
-                  <Swatch theme={t} />
-                  <div className="flex items-center justify-between mt-1.5">
-                    <span className="text-xs font-bold text-slate-800">{t.name}</span>
-                    {selected && <Check className="w-3.5 h-3.5 text-blue-600" />}
-                  </div>
-                  <p className="text-[10px] text-slate-500 leading-tight">{t.description}</p>
+                  <Monitor className="w-4 h-4 shrink-0" />
+                  <span className="flex-1 text-right">تلقائي (حسب إعدادات الجهاز)</span>
+                  {prefs.themeId === SYSTEM_THEME_ID && <Check className="w-4 h-4" />}
                 </button>
-              );
-            })}
-          </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-100 space-y-3">
-            <div>
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 mb-1.5">
-                <Type className="w-3.5 h-3.5" /> حجم الخط
-              </div>
-              <div className="grid grid-cols-3 gap-1.5">
-                {fonts.map((f) => (
-                  <button
-                    key={f.id}
-                    onClick={() => setFontScale(f.id)}
-                    className={`py-1.5 rounded-lg text-xs font-semibold border transition ${
-                      prefs.fontScale === f.id
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    {f.label}
-                  </button>
-                ))}
+                <div className="grid grid-cols-2 gap-2.5">
+                  {THEMES.map((t) => {
+                    const selected = prefs.themeId === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => setTheme(t.id)}
+                        className={`min-w-0 text-right p-2 rounded-xl border-2 transition ${
+                          selected ? 'border-blue-500 bg-blue-50' : 'border-transparent bg-slate-50 hover:border-slate-200'
+                        }`}
+                      >
+                        <Swatch theme={t} />
+                        <div className="flex items-center justify-between gap-1 mt-1.5">
+                          <span className="text-xs font-bold text-slate-800 truncate">{t.name}</span>
+                          {selected && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
+                        </div>
+                        <p className="text-[10px] text-slate-500 leading-tight">{t.description}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 space-y-3">
+                  <div>
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 mb-1.5">
+                      <Type className="w-3.5 h-3.5" /> حجم الخط
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {fonts.map((f) => (
+                        <button
+                          key={f.id}
+                          onClick={() => setFontScale(f.id)}
+                          className={`py-2 rounded-lg text-xs font-semibold border transition ${
+                            prefs.fontScale === f.id
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <label className="flex items-center justify-between gap-2 text-xs font-bold text-slate-700 cursor-pointer py-1">
+                    <span className="flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5" /> تقليل الحركة والانتقالات
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={prefs.reduceMotion}
+                      onChange={(e) => setReduceMotion(e.target.checked)}
+                      className="w-5 h-5 accent-blue-600"
+                    />
+                  </label>
+                </div>
               </div>
             </div>
-
-            <label className="flex items-center justify-between gap-2 text-xs font-bold text-slate-700 cursor-pointer">
-              <span className="flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5" /> تقليل الحركة والانتقالات
-              </span>
-              <input
-                type="checkbox"
-                checked={prefs.reduceMotion}
-                onChange={(e) => setReduceMotion(e.target.checked)}
-                className="w-4 h-4 accent-blue-600"
-              />
-            </label>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
