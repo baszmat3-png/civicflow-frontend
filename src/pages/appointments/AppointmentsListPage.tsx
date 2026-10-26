@@ -146,7 +146,7 @@ export const AppointmentsListPage: React.FC = () => {
               className="text-xs p-2.5 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-900 focus:outline-none"
             >
               <option value="ALL">كل الشخصيات (النائب ومدير المكتب)</option>
-              <option value="DEPUTY">سعادة النائب</option>
+              <option value="DEPUTY">سيادة النائب</option>
               <option value="OFFICE_DIRECTOR">مدير المكتب</option>
             </select>
 

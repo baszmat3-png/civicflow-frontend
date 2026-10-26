@@ -301,7 +301,7 @@ export const DashboardPage: React.FC = () => {
                     </div>
 
                     <span className="px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-bold">
-                      {apt.targetPerson === 'DEPUTY' ? 'سعادة النائب' : 'مدير المكتب'}
+                      {apt.targetPerson === 'DEPUTY' ? 'سيادة النائب' : 'مدير المكتب'}
                     </span>
                   </div>
 

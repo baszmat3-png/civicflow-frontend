@@ -24,7 +24,7 @@ export const PublicAppointmentPage: React.FC = () => {
   const [targetPerson, setTargetPerson] = useState<'DEPUTY' | 'OFFICE_DIRECTOR'>('DEPUTY');
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [availableDates, setAvailableDates] = useState<AppointmentSlotItem[]>([]);
-  const [personTitle, setPersonTitle] = useState('سعادة النائب');
+  const [personTitle, setPersonTitle] = useState('سيادة النائب');
 
   // Form State
   const [selectedDate, setSelectedDate] = useState<string>('');
@@ -46,7 +46,7 @@ export const PublicAppointmentPage: React.FC = () => {
         setErrorMsg('');
         const res = await publicService.getAppointmentSlots(targetPerson);
         setAvailableDates(res.availableDates || []);
-        setPersonTitle(res.targetPersonTitle || (targetPerson === 'DEPUTY' ? 'سعادة النائب' : 'مدير المكتب'));
+        setPersonTitle(res.targetPersonTitle || (targetPerson === 'DEPUTY' ? 'سيادة النائب' : 'مدير المكتب'));
         if (res.availableDates && res.availableDates.length > 0) {
           setSelectedDate(res.availableDates[0].date);
         }

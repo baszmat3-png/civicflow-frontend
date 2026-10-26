@@ -158,7 +158,7 @@ export const AppointmentSettingsPage: React.FC = () => {
           }`}
         >
           <UserCheck className="w-4 h-4" />
-          جدول مواعيد سعادة النائب
+          جدول مواعيد سيادة النائب
         </button>
 
         <button

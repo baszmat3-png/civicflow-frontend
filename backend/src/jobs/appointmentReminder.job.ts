@@ -63,7 +63,7 @@ export const checkAndSendAppointmentReminders = async () => {
       if (start === null) continue;
 
       const minutesUntil = (start - now) / MIN;
-      const targetPersonTitle = apt.targetPerson === 'DEPUTY' ? 'سعادة النائب' : 'مدير المكتب';
+      const targetPersonTitle = apt.targetPerson === 'DEPUTY' ? 'سيادة النائب' : 'مدير المكتب';
       const slot = parseSlotStart(apt.timeSlot)!;
       const common = {
         to: apt.customerPhone,

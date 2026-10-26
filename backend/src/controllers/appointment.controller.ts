@@ -110,7 +110,7 @@ export const getAvailableScheduleSlots = async (req: Request, res: Response, nex
 
     return sendSuccess(res, {
       targetPerson,
-      targetPersonTitle: targetPerson === 'DEPUTY' ? 'سعادة النائب' : 'مدير المكتب',
+      targetPersonTitle: targetPerson === 'DEPUTY' ? 'سيادة النائب' : 'مدير المكتب',
       availableDates
     });
   } catch (error) {
@@ -147,7 +147,7 @@ export const bookPublicAppointment = async (req: Request, res: Response, next: N
       }
     });
 
-    const targetPersonTitle = appointment.targetPerson === 'DEPUTY' ? 'سعادة النائب' : 'مدير المكتب';
+    const targetPersonTitle = appointment.targetPerson === 'DEPUTY' ? 'سيادة النائب' : 'مدير المكتب';
 
     // WhatsApp confirmation to citizen (queued: never blocks the response)
     void whatsappNotificationService
@@ -242,7 +242,7 @@ export const updateAppointmentStatus = async (req: Request, res: Response, next:
       }
     });
 
-    const targetPersonTitle = updated.targetPerson === 'DEPUTY' ? 'سعادة النائب' : 'مدير المكتب';
+    const targetPersonTitle = updated.targetPerson === 'DEPUTY' ? 'سيادة النائب' : 'مدير المكتب';
     const dateStr = formatDatePlus3(updated.appointmentDate);
 
     // WhatsApp Notification on Status Change (Using Dynamic Templates)
@@ -300,7 +300,7 @@ export const sendManualAppointmentReminder = async (req: Request, res: Response,
       throw new AppError('طلب الموعد غير موجود', 404, 'APPOINTMENT_NOT_FOUND');
     }
 
-    const targetPersonTitle = apt.targetPerson === 'DEPUTY' ? 'سعادة النائب' : 'مدير المكتب';
+    const targetPersonTitle = apt.targetPerson === 'DEPUTY' ? 'سيادة النائب' : 'مدير المكتب';
     await whatsappNotificationService.sendAppointmentReminderWhatsApp({
       to: apt.customerPhone,
       customerName: apt.customerName,
