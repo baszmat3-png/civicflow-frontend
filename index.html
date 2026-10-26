@@ -4,11 +4,26 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#2563eb" />
     <title>CivicFlow | نظام إدارة الصادر والوارد والمعاملات</title>
     <!-- Google Fonts: Cairo & IBM Plex Sans Arabic -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Apply the saved theme before first paint (no light/dark flash) -->
+    <script>
+      (function () {
+        try {
+          var p = JSON.parse(localStorage.getItem('civicflow_theme_prefs') || '{}');
+          var dark = ['midnight', 'forest', 'aurora', 'obsidian'];
+          var id = p.themeId;
+          if (id === 'system') id = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'midnight' : 'royal';
+          var r = document.documentElement;
+          if (id) r.setAttribute('data-theme', id);
+          if (dark.indexOf(id) > -1) { r.setAttribute('data-mode', 'dark'); r.classList.add('dark'); r.style.colorScheme = 'dark'; }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen selection:bg-blue-600 selection:text-white">
     <div id="root"></div>

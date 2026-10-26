@@ -16,6 +16,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { GlobalSearchModal } from './GlobalSearchModal';
+import { ThemeSwitcher } from './ThemeSwitcher';
 
 interface HeaderProps {
   onOpenMobileMenu?: () => void;
@@ -122,6 +123,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
               Ctrl+K
             </kbd>
           </button>
+
+          <ThemeSwitcher />
 
           {/* Notifications Dropdown */}
           <div className="relative" ref={notifRef}>

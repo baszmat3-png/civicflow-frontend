@@ -372,6 +372,33 @@ model WhatsAppMessageLog {
   @@map("whatsapp_message_logs")
 }
 
+// Durable outbound message queue (WhatsApp). Requests only enqueue; a background
+// worker delivers with retries so API responses never wait on the provider.
+model OutboundMessage {
+  id                String    @id @default(uuid())
+  channel           String    @default("WHATSAPP")
+  phoneNumber       String
+  templateKey       String?
+  message           String
+  requestId         String?
+  dedupeKey         String?   @unique
+  priority          Int       @default(5) // 1 = most urgent
+  status            String    @default("PENDING") // PENDING, PROCESSING, SENT, FAILED
+  attempts          Int       @default(0)
+  maxAttempts       Int       @default(5)
+  nextAttemptAt     DateTime  @default(now())
+  lastError         String?
+  providerMessageId String?
+  lockedAt          DateTime?
+  sentAt            DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([status, nextAttemptAt, priority])
+  @@index([createdAt])
+  @@map("outbound_messages")
+}
+
 model SLASetting {
   id                  String   @id @default(uuid())
   ministryId          String   @unique
@@ -433,7 +460,8 @@ model Appointment {
   notes               String?
   status              String   @default("PENDING") // PENDING, CONFIRMED, REJECTED, COMPLETED, CANCELLED
   adminNotes          String?
-  reminderSent        Boolean  @default(false)
+  reminderSent        Boolean  @default(false) // 1-hour-before reminder
+  reminder24Sent      Boolean  @default(false) // day-before reminder
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -441,6 +469,7 @@ model Appointment {
   @@index([customerPhone])
   @@index([appointmentDate])
   @@index([status])
+  @@index([status, appointmentDate])
   @@map("appointments")
 }
 

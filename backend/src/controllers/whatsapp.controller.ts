@@ -4,6 +4,8 @@ import { prisma } from '../config/database.js';
 import { whatsAppProvider } from '../services/whatsapp/index.js';
 import { AppError } from '../middlewares/error.middleware.js';
 import { sendSuccess } from '../utils/apiResponse.js';
+import { messageQueue } from '../services/messageQueue.service.js';
+import { invalidateTemplateCache } from '../services/whatsapp/whatsappNotification.service.js';
 
 const templateSchema = z.object({
   key: z.string().min(2, 'مفتاح القالب مطلوب'),
@@ -53,6 +55,7 @@ export const createTemplate = async (req: Request, res: Response, next: NextFunc
       }
     });
 
+    invalidateTemplateCache();
     return sendSuccess(res, created, 'تم إنشاء قالب الرسالة بنجاح', 201);
   } catch (error) {
     next(error);
@@ -73,6 +76,7 @@ export const updateTemplate = async (req: Request, res: Response, next: NextFunc
       }
     });
 
+    invalidateTemplateCache();
     return sendSuccess(res, updated, 'تم تحديث قالب الرسالة بنجاح');
   } catch (error) {
     next(error);
@@ -83,7 +87,25 @@ export const deleteTemplate = async (req: Request, res: Response, next: NextFunc
   try {
     const { id } = req.params;
     await prisma.whatsAppTemplate.delete({ where: { id } });
+    invalidateTemplateCache();
     return sendSuccess(res, null, 'تم حذف قالب الرسالة بنجاح');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getQueueStats = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    return sendSuccess(res, await messageQueue.stats());
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const retryFailedQueue = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const count = await messageQueue.retryFailed();
+    return sendSuccess(res, { count }, `تمت إعادة جدولة ${count} رسالة فاشلة`);
   } catch (error) {
     next(error);
   }
@@ -226,11 +248,11 @@ export const sendBulkWhatsApp = async (req: Request, res: Response, next: NextFu
     let failCount = 0;
     const errors: string[] = [];
 
-    for (const item of recipientsList) {
+    const sendOne = async (item: any) => {
       const phone = item.phoneNumber || item.customerPhone || item.phone;
       if (!phone) {
         failCount++;
-        continue;
+        return;
       }
 
       let formattedMessage = message || '';
@@ -254,14 +276,25 @@ export const sendBulkWhatsApp = async (req: Request, res: Response, next: NextFu
         if (!result.success) {
           failCount++;
           errors.push(`${phone}: ${result.errorMessage || 'تعذر الإرسال'}`);
-          continue;
+          return;
         }
         successCount++;
       } catch (err: any) {
         failCount++;
         errors.push(`${phone}: ${err.message || 'خطأ أثناء الإرسال'}`);
       }
-    }
+    };
+
+    // Bounded parallelism: ~5x faster than one-by-one without tripping provider rate limits
+    const BULK_CONCURRENCY = 5;
+    let cursor = 0;
+    await Promise.all(
+      Array.from({ length: Math.min(BULK_CONCURRENCY, recipientsList.length) }, async () => {
+        while (cursor < recipientsList.length) {
+          await sendOne(recipientsList[cursor++]);
+        }
+      })
+    );
 
     return sendSuccess(
       res,

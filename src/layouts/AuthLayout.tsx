@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet, Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Shield, Sparkles } from 'lucide-react';
+import { ThemeSwitcher } from '../components/common/ThemeSwitcher';
 
 export const AuthLayout: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
@@ -38,6 +39,7 @@ export const AuthLayout: React.FC = () => {
           </Link>
         </div>
       </div>
+      <ThemeSwitcher variant="floating" />
     </div>
   );
 };

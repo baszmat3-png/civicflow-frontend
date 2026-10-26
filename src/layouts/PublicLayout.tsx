@@ -1,5 +1,6 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
+import { ThemeSwitcher } from '../components/common/ThemeSwitcher';
 import { ShieldCheck, LogIn, Search, Calendar, PlusCircle, BarChart3 } from 'lucide-react';
 
 export const PublicLayout: React.FC = () => {
@@ -107,6 +108,7 @@ export const PublicLayout: React.FC = () => {
           </div>
         </div>
       </footer>
+      <ThemeSwitcher variant="floating" />
     </div>
   );
 };

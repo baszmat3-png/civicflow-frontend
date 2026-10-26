@@ -52,6 +52,18 @@ const DEFAULT_WA_TEMPLATES = [
     variables: ['customer_name', 'appointment_number', 'target_person', 'appointment_date', 'appointment_time']
   },
   {
+    key: 'appointment_received',
+    title: 'استلام طلب حجز موعد',
+    content: 'مرحباً {{customer_name}}، تم استلام طلب حجز موعدك بنجاح لمقابلة ({{target_person}}). رقم الطلب: {{appointment_number}}، التاريخ: {{appointment_date}}، الوقت: {{appointment_time}}. سيتم مراجعة الطلب والتأكيد عليك عبر واتساب قريباً.',
+    variables: ['customer_name', 'appointment_number', 'target_person', 'appointment_date', 'appointment_time']
+  },
+  {
+    key: 'appointment_reminder_24h',
+    title: 'تذكير بموعد المقابلة (قبل يوم)',
+    content: 'تذكير: الأخ/الأخت {{customer_name}}، موعد مقابلتك غداً {{appointment_date}} في تمام الساعة {{appointment_time}} لمقابلة ({{target_person}})، رقم الموعد {{appointment_number}}. نرجو الحضور في الوقت المحدد.',
+    variables: ['customer_name', 'appointment_number', 'target_person', 'appointment_date', 'appointment_time']
+  },
+  {
     key: 'bulk_custom_message',
     title: 'رسالة جماعية مخصصة للمراجعين',
     content: 'السلام عليكم الأخ/الأخت {{customer_name}} المحترم،\nنود إعلامكم بخصوص معاملتكم ({{request_number}}) لدى ({{ministry}}):\nيرجى العلم بأنه تم تحديث الإجراءات بنجاح.\n\nلمتابعة تفاصيل الطلب: {{tracking_link}}\nمع تحيات مكتب المتابعة.',

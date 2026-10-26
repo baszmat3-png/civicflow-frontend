@@ -1,3 +1,8 @@
+const STEPS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];
+// Colour ramp backed by CSS variables, so themes can swap the palette at runtime
+const ramp = (name) =>
+  Object.fromEntries(STEPS.map((s) => [s, `rgb(var(--${name}-${s}) / <alpha-value>)`]));
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -11,32 +16,10 @@ export default {
         sans: ['Cairo', 'IBM Plex Sans Arabic', 'system-ui', 'sans-serif'],
       },
       colors: {
-        brand: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
-          950: '#172554',
-        },
-        primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
-          950: '#172554',
-        },
+        brand: ramp('accent'),
+        primary: ramp('accent'),
+        blue: ramp('accent'),
+        indigo: ramp('accent2'),
         navy: {
           50: '#f8fafc',
           100: '#f1f5f9',

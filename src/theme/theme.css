@@ -1,0 +1,196 @@
+/* ==========================================================================
+   Theme layer (generated values live in src/theme/themes.ts)
+   - Light themes only change accent colours (Tailwind blue/indigo ramps -> CSS vars)
+   - Dark themes additionally remap the neutral surfaces below
+   ========================================================================== */
+
+:root {
+  /* Default accent = "royal" so first paint is correct before JS runs */
+  --accent-50: 239 246 255; --accent-100: 219 234 254; --accent-200: 191 219 254; --accent-300: 147 197 253;
+  --accent-400: 96 165 250; --accent-500: 59 130 246; --accent-600: 37 99 235; --accent-700: 29 78 216;
+  --accent-800: 30 64 175; --accent-900: 30 58 138; --accent-950: 23 37 84;
+  --accent2-50: 238 242 255; --accent2-100: 224 231 255; --accent2-200: 199 210 254; --accent2-300: 165 180 252;
+  --accent2-400: 129 140 248; --accent2-500: 99 102 241; --accent2-600: 79 70 229; --accent2-700: 67 56 202;
+  --accent2-800: 55 48 163; --accent2-900: 49 46 129; --accent2-950: 30 27 75;
+}
+
+/* Smooth theme switching (skipped for reduced motion) */
+html:not(.reduce-motion) body,
+html:not(.reduce-motion) header,
+html:not(.reduce-motion) aside,
+html:not(.reduce-motion) main {
+  transition: background-color .25s ease, color .25s ease, border-color .25s ease;
+}
+html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after {
+  animation-duration: .001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: .001ms !important;
+  scroll-behavior: auto !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html:not(.reduce-motion) * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* Flash-free defaults for dark themes (JS overrides these inline with the exact values) */
+html[data-mode='dark'] {
+  --bg: #0b1220; --surface: #111a2e; --surface-2: #16213a; --hover: #1b2846;
+  --border: #24324f; --text: #e6ecf7; --text-muted: #aab6cf; --text-dim: #7d8aa6;
+}
+html[data-theme='forest']   { --bg:#07140f; --surface:#0d1f18; --surface-2:#112a20; --hover:#163628; --border:#1f3d30; --text:#e4f3ec; --text-muted:#a6c4b6; --text-dim:#76978a; }
+html[data-theme='aurora']   { --bg:#0e0b1a; --surface:#161229; --surface-2:#1d1838; --hover:#251f47; --border:#31295a; --text:#ece8fa; --text-muted:#b8b0d8; --text-dim:#8a82ad; }
+html[data-theme='obsidian'] { --bg:#0a0a0b; --surface:#131315; --surface-2:#1a1a1d; --hover:#222226; --border:#2c2c31; --text:#ededee; --text-muted:#b0b0b6; --text-dim:#80808a; }
+
+@media screen {
+  html[data-mode='dark'] body { background-color: var(--bg); color: var(--text); }
+
+  /* Surfaces */
+  html[data-mode='dark'] .bg-white,
+  html[data-mode='dark'] .bg-white\/80,
+  html[data-mode='dark'] .bg-white\/90 { background-color: var(--surface); }
+  html[data-mode='dark'] .bg-slate-50,
+  html[data-mode='dark'] .bg-slate-100,
+  html[data-mode='dark'] .bg-gray-50,
+  html[data-mode='dark'] .bg-gray-100 { background-color: var(--surface-2); }
+  html[data-mode='dark'] .bg-slate-200 { background-color: var(--border); }
+  html[data-mode='dark'] .hover\:bg-slate-50:hover,
+  html[data-mode='dark'] .hover\:bg-slate-100:hover,
+  html[data-mode='dark'] .hover\:bg-slate-200:hover,
+  html[data-mode='dark'] .hover\:bg-gray-50:hover,
+  html[data-mode='dark'] .hover\:bg-gray-100:hover { background-color: var(--hover); }
+  html[data-mode='dark'] .bg-slate-900 { background-color: var(--hover); }
+  html[data-mode='dark'] .bg-slate-800 { background-color: var(--surface-2); }
+
+  /* Text */
+  html[data-mode='dark'] .text-slate-900,
+  html[data-mode='dark'] .text-slate-800,
+  html[data-mode='dark'] .text-slate-700,
+  html[data-mode='dark'] .text-gray-900,
+  html[data-mode='dark'] .text-gray-800,
+  html[data-mode='dark'] .text-gray-700 { color: var(--text); }
+  html[data-mode='dark'] .text-slate-600,
+  html[data-mode='dark'] .text-slate-500,
+  html[data-mode='dark'] .text-gray-600,
+  html[data-mode='dark'] .text-gray-500 { color: var(--text-muted); }
+  html[data-mode='dark'] .text-slate-400,
+  html[data-mode='dark'] .text-slate-300,
+  html[data-mode='dark'] .text-gray-400 { color: var(--text-dim); }
+  html[data-mode='dark'] .hover\:text-slate-900:hover,
+  html[data-mode='dark'] .hover\:text-slate-700:hover { color: var(--text); }
+  html[data-mode='dark'] ::placeholder { color: var(--text-dim); opacity: 1; }
+
+  /* Borders & dividers */
+  html[data-mode='dark'] .border-slate-100,
+  html[data-mode='dark'] .border-slate-200,
+  html[data-mode='dark'] .border-slate-300,
+  html[data-mode='dark'] .border-gray-100,
+  html[data-mode='dark'] .border-gray-200,
+  html[data-mode='dark'] .border-gray-300 { border-color: var(--border); }
+  html[data-mode='dark'] .divide-slate-50 > :not([hidden]) ~ :not([hidden]),
+  html[data-mode='dark'] .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+  html[data-mode='dark'] .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-color: var(--border); }
+
+  /* Form controls */
+  html[data-mode='dark'] input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  html[data-mode='dark'] select,
+  html[data-mode='dark'] textarea { background-color: var(--surface-2); color: var(--text); border-color: var(--border); }
+  html[data-mode='dark'] option { background-color: var(--surface); color: var(--text); }
+
+  /* Scrollbars */
+  html[data-mode='dark'] ::-webkit-scrollbar-track,
+  html[data-mode='dark'] .custom-scrollbar-x::-webkit-scrollbar-track { background: var(--surface); }
+  html[data-mode='dark'] ::-webkit-scrollbar-thumb,
+  html[data-mode='dark'] .custom-scrollbar-x::-webkit-scrollbar-thumb { background: var(--border); }
+  html[data-mode='dark'] .custom-scrollbar-x,
+  html[data-mode='dark'] .overflow-x-auto { scrollbar-color: var(--border) var(--surface); }
+
+  /* Soft shadows read poorly on dark surfaces */
+  html[data-mode='dark'] .shadow-xl, html[data-mode='dark'] .shadow-lg, html[data-mode='dark'] .shadow-2xl {
+    --tw-shadow-color: rgb(0 0 0 / .55);
+  }
+
+  /* Accent tints (the app's blue/indigo ramp follows the active accent) */
+  html[data-mode='dark'] .bg-blue-50, html[data-mode='dark'] .bg-indigo-50 { background-color: rgb(var(--accent-500) / .12); }
+  html[data-mode='dark'] .bg-blue-100, html[data-mode='dark'] .bg-indigo-100 { background-color: rgb(var(--accent-500) / .2); }
+  html[data-mode='dark'] .text-blue-600, html[data-mode='dark'] .text-blue-700, html[data-mode='dark'] .text-blue-800,
+  html[data-mode='dark'] .text-blue-900, html[data-mode='dark'] .text-indigo-600, html[data-mode='dark'] .text-indigo-700 { color: rgb(var(--accent-300)); }
+  html[data-mode='dark'] .border-blue-100, html[data-mode='dark'] .border-blue-200, html[data-mode='dark'] .border-blue-300 { border-color: rgb(var(--accent-500) / .35); }
+
+  /* emerald */
+  html[data-mode='dark'] .bg-emerald-50 { background-color: rgb(16 185 129 / .12); }
+  html[data-mode='dark'] .bg-emerald-100 { background-color: rgb(16 185 129 / .2); }
+  html[data-mode='dark'] .bg-emerald-200 { background-color: rgb(16 185 129 / .3); }
+  html[data-mode='dark'] .text-emerald-600, html[data-mode='dark'] .text-emerald-700, html[data-mode='dark'] .text-emerald-800, html[data-mode='dark'] .text-emerald-900 { color: rgb(110 231 183); }
+  html[data-mode='dark'] .border-emerald-100, html[data-mode='dark'] .border-emerald-200, html[data-mode='dark'] .border-emerald-300 { border-color: rgb(16 185 129 / .35); }
+  /* green */
+  html[data-mode='dark'] .bg-green-50 { background-color: rgb(34 197 94 / .12); }
+  html[data-mode='dark'] .bg-green-100 { background-color: rgb(34 197 94 / .2); }
+  html[data-mode='dark'] .bg-green-200 { background-color: rgb(34 197 94 / .3); }
+  html[data-mode='dark'] .text-green-600, html[data-mode='dark'] .text-green-700, html[data-mode='dark'] .text-green-800, html[data-mode='dark'] .text-green-900 { color: rgb(134 239 172); }
+  html[data-mode='dark'] .border-green-100, html[data-mode='dark'] .border-green-200, html[data-mode='dark'] .border-green-300 { border-color: rgb(34 197 94 / .35); }
+  /* rose */
+  html[data-mode='dark'] .bg-rose-50 { background-color: rgb(244 63 94 / .12); }
+  html[data-mode='dark'] .bg-rose-100 { background-color: rgb(244 63 94 / .2); }
+  html[data-mode='dark'] .bg-rose-200 { background-color: rgb(244 63 94 / .3); }
+  html[data-mode='dark'] .text-rose-600, html[data-mode='dark'] .text-rose-700, html[data-mode='dark'] .text-rose-800, html[data-mode='dark'] .text-rose-900 { color: rgb(253 164 175); }
+  html[data-mode='dark'] .border-rose-100, html[data-mode='dark'] .border-rose-200, html[data-mode='dark'] .border-rose-300 { border-color: rgb(244 63 94 / .35); }
+  /* red */
+  html[data-mode='dark'] .bg-red-50 { background-color: rgb(239 68 68 / .12); }
+  html[data-mode='dark'] .bg-red-100 { background-color: rgb(239 68 68 / .2); }
+  html[data-mode='dark'] .bg-red-200 { background-color: rgb(239 68 68 / .3); }
+  html[data-mode='dark'] .text-red-600, html[data-mode='dark'] .text-red-700, html[data-mode='dark'] .text-red-800, html[data-mode='dark'] .text-red-900 { color: rgb(252 165 165); }
+  html[data-mode='dark'] .border-red-100, html[data-mode='dark'] .border-red-200, html[data-mode='dark'] .border-red-300 { border-color: rgb(239 68 68 / .35); }
+  /* amber */
+  html[data-mode='dark'] .bg-amber-50 { background-color: rgb(245 158 11 / .12); }
+  html[data-mode='dark'] .bg-amber-100 { background-color: rgb(245 158 11 / .2); }
+  html[data-mode='dark'] .bg-amber-200 { background-color: rgb(245 158 11 / .3); }
+  html[data-mode='dark'] .text-amber-600, html[data-mode='dark'] .text-amber-700, html[data-mode='dark'] .text-amber-800, html[data-mode='dark'] .text-amber-900 { color: rgb(252 211 77); }
+  html[data-mode='dark'] .border-amber-100, html[data-mode='dark'] .border-amber-200, html[data-mode='dark'] .border-amber-300 { border-color: rgb(245 158 11 / .35); }
+  /* yellow */
+  html[data-mode='dark'] .bg-yellow-50 { background-color: rgb(234 179 8 / .12); }
+  html[data-mode='dark'] .bg-yellow-100 { background-color: rgb(234 179 8 / .2); }
+  html[data-mode='dark'] .bg-yellow-200 { background-color: rgb(234 179 8 / .3); }
+  html[data-mode='dark'] .text-yellow-600, html[data-mode='dark'] .text-yellow-700, html[data-mode='dark'] .text-yellow-800, html[data-mode='dark'] .text-yellow-900 { color: rgb(253 224 71); }
+  html[data-mode='dark'] .border-yellow-100, html[data-mode='dark'] .border-yellow-200, html[data-mode='dark'] .border-yellow-300 { border-color: rgb(234 179 8 / .35); }
+  /* orange */
+  html[data-mode='dark'] .bg-orange-50 { background-color: rgb(249 115 22 / .12); }
+  html[data-mode='dark'] .bg-orange-100 { background-color: rgb(249 115 22 / .2); }
+  html[data-mode='dark'] .bg-orange-200 { background-color: rgb(249 115 22 / .3); }
+  html[data-mode='dark'] .text-orange-600, html[data-mode='dark'] .text-orange-700, html[data-mode='dark'] .text-orange-800, html[data-mode='dark'] .text-orange-900 { color: rgb(253 186 116); }
+  html[data-mode='dark'] .border-orange-100, html[data-mode='dark'] .border-orange-200, html[data-mode='dark'] .border-orange-300 { border-color: rgb(249 115 22 / .35); }
+  /* purple */
+  html[data-mode='dark'] .bg-purple-50 { background-color: rgb(168 85 247 / .12); }
+  html[data-mode='dark'] .bg-purple-100 { background-color: rgb(168 85 247 / .2); }
+  html[data-mode='dark'] .bg-purple-200 { background-color: rgb(168 85 247 / .3); }
+  html[data-mode='dark'] .text-purple-600, html[data-mode='dark'] .text-purple-700, html[data-mode='dark'] .text-purple-800, html[data-mode='dark'] .text-purple-900 { color: rgb(216 180 254); }
+  html[data-mode='dark'] .border-purple-100, html[data-mode='dark'] .border-purple-200, html[data-mode='dark'] .border-purple-300 { border-color: rgb(168 85 247 / .35); }
+  /* teal */
+  html[data-mode='dark'] .bg-teal-50 { background-color: rgb(20 184 166 / .12); }
+  html[data-mode='dark'] .bg-teal-100 { background-color: rgb(20 184 166 / .2); }
+  html[data-mode='dark'] .bg-teal-200 { background-color: rgb(20 184 166 / .3); }
+  html[data-mode='dark'] .text-teal-600, html[data-mode='dark'] .text-teal-700, html[data-mode='dark'] .text-teal-800, html[data-mode='dark'] .text-teal-900 { color: rgb(94 234 212); }
+  html[data-mode='dark'] .border-teal-100, html[data-mode='dark'] .border-teal-200, html[data-mode='dark'] .border-teal-300 { border-color: rgb(20 184 166 / .35); }
+  /* sky */
+  html[data-mode='dark'] .bg-sky-50 { background-color: rgb(14 165 233 / .12); }
+  html[data-mode='dark'] .bg-sky-100 { background-color: rgb(14 165 233 / .2); }
+  html[data-mode='dark'] .bg-sky-200 { background-color: rgb(14 165 233 / .3); }
+  html[data-mode='dark'] .text-sky-600, html[data-mode='dark'] .text-sky-700, html[data-mode='dark'] .text-sky-800, html[data-mode='dark'] .text-sky-900 { color: rgb(125 211 252); }
+  html[data-mode='dark'] .border-sky-100, html[data-mode='dark'] .border-sky-200, html[data-mode='dark'] .border-sky-300 { border-color: rgb(14 165 233 / .35); }
+  /* cyan */
+  html[data-mode='dark'] .bg-cyan-50 { background-color: rgb(6 182 212 / .12); }
+  html[data-mode='dark'] .bg-cyan-100 { background-color: rgb(6 182 212 / .2); }
+  html[data-mode='dark'] .bg-cyan-200 { background-color: rgb(6 182 212 / .3); }
+  html[data-mode='dark'] .text-cyan-600, html[data-mode='dark'] .text-cyan-700, html[data-mode='dark'] .text-cyan-800, html[data-mode='dark'] .text-cyan-900 { color: rgb(103 232 249); }
+  html[data-mode='dark'] .border-cyan-100, html[data-mode='dark'] .border-cyan-200, html[data-mode='dark'] .border-cyan-300 { border-color: rgb(6 182 212 / .35); }
+  /* violet */
+  html[data-mode='dark'] .bg-violet-50 { background-color: rgb(139 92 246 / .12); }
+  html[data-mode='dark'] .bg-violet-100 { background-color: rgb(139 92 246 / .2); }
+  html[data-mode='dark'] .bg-violet-200 { background-color: rgb(139 92 246 / .3); }
+  html[data-mode='dark'] .text-violet-600, html[data-mode='dark'] .text-violet-700, html[data-mode='dark'] .text-violet-800, html[data-mode='dark'] .text-violet-900 { color: rgb(196 181 253); }
+  html[data-mode='dark'] .border-violet-100, html[data-mode='dark'] .border-violet-200, html[data-mode='dark'] .border-violet-300 { border-color: rgb(139 92 246 / .35); }
+  /* pink */
+  html[data-mode='dark'] .bg-pink-50 { background-color: rgb(236 72 153 / .12); }
+  html[data-mode='dark'] .bg-pink-100 { background-color: rgb(236 72 153 / .2); }
+  html[data-mode='dark'] .bg-pink-200 { background-color: rgb(236 72 153 / .3); }
+  html[data-mode='dark'] .text-pink-600, html[data-mode='dark'] .text-pink-700, html[data-mode='dark'] .text-pink-800, html[data-mode='dark'] .text-pink-900 { color: rgb(249 168 212); }
+  html[data-mode='dark'] .border-pink-100, html[data-mode='dark'] .border-pink-200, html[data-mode='dark'] .border-pink-300 { border-color: rgb(236 72 153 / .35); }
+}

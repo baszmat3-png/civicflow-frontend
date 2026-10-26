@@ -1,6 +1,7 @@
 import { whatsAppProvider } from './index.js';
 import { env } from '../../config/env.js';
 import { prisma } from '../../config/database.js';
+import { messageQueue } from '../messageQueue.service.js';
 
 const getBaseTrackingUrl = (): string => {
   let frontUrl = (process.env.FRONTEND_URL || env.FRONTEND_URL || '').trim();
@@ -10,21 +11,33 @@ const getBaseTrackingUrl = (): string => {
   return frontUrl.replace(/\/+$/, '');
 };
 
+// Templates change rarely: cache them so each message doesn't cost a DB round-trip.
+const TEMPLATE_TTL_MS = 60_000;
+const templateCache = new Map<string, { content: string | null; at: number }>();
+
+/** Call after any template create/update/delete so edits apply immediately */
+export const invalidateTemplateCache = () => templateCache.clear();
+
+const loadTemplateContent = async (templateKey: string): Promise<string | null> => {
+  const hit = templateCache.get(templateKey);
+  if (hit && Date.now() - hit.at < TEMPLATE_TTL_MS) return hit.content;
+  const template = await prisma.whatsAppTemplate.findUnique({ where: { key: templateKey } });
+  const content = template?.content || null;
+  templateCache.set(templateKey, { content, at: Date.now() });
+  return content;
+};
+
 const renderTemplate = async (
   templateKey: string,
   variables: Record<string, string>,
   defaultFallback: string
 ): Promise<string> => {
   try {
-    const template = await prisma.whatsAppTemplate.findUnique({
-      where: { key: templateKey }
-    });
-
-    if (template && template.content) {
-      let rendered = template.content;
+    const content = await loadTemplateContent(templateKey);
+    if (content) {
+      let rendered = content;
       for (const [key, value] of Object.entries(variables)) {
-        const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
-        rendered = rendered.replace(regex, value || '');
+        rendered = rendered.split(`{{${key}}}`).join(value || '');
       }
       return rendered;
     }
@@ -74,11 +87,12 @@ export const whatsappNotificationService = {
         fallbackMessage
       );
 
-      return await whatsAppProvider.sendMessage({
+      return await messageQueue.enqueue({
         to: params.to,
         message,
         templateKey: 'request_received',
-        requestId: params.requestId
+        requestId: params.requestId,
+        priority: 3
       });
     } catch (err) {
       console.warn('⚠️ WhatsApp request received notification skipped:', err);
@@ -124,11 +138,12 @@ export const whatsappNotificationService = {
         fallbackMessage
       );
 
-      return await whatsAppProvider.sendMessage({
+      return await messageQueue.enqueue({
         to: params.to,
         message,
         templateKey: 'status_updated',
-        requestId: params.requestId
+        requestId: params.requestId,
+        priority: 3
       });
     } catch (err) {
       console.warn('⚠️ WhatsApp status update notification skipped:', err);
@@ -174,11 +189,12 @@ export const whatsappNotificationService = {
         fallbackMessage
       );
 
-      return await whatsAppProvider.sendMessage({
+      return await messageQueue.enqueue({
         to: params.to,
         message,
         templateKey: 'final_response_ready',
-        requestId: params.requestId
+        requestId: params.requestId,
+        priority: 3
       });
     } catch (err) {
       console.warn('⚠️ WhatsApp final response notification skipped:', err);
@@ -263,11 +279,12 @@ export const whatsappNotificationService = {
         fallbackMessage
       );
 
-      return await whatsAppProvider.sendMessage({
+      return await messageQueue.enqueue({
         to: params.to,
         message,
         templateKey: 'appointment_approved',
-        requestId: params.appointmentId
+        requestId: params.appointmentId,
+        priority: 2
       });
     } catch (err) {
       console.warn('⚠️ WhatsApp appointment approved notification skipped:', err);
@@ -307,11 +324,12 @@ export const whatsappNotificationService = {
         fallbackMessage
       );
 
-      return await whatsAppProvider.sendMessage({
+      return await messageQueue.enqueue({
         to: params.to,
         message,
         templateKey: 'appointment_rejected',
-        requestId: params.appointmentId
+        requestId: params.appointmentId,
+        priority: 2
       });
     } catch (err) {
       console.warn('⚠️ WhatsApp appointment rejected notification skipped:', err);
@@ -319,9 +337,9 @@ export const whatsappNotificationService = {
   },
 
   /**
-   * إرسال تذكير بالموعد قبل ساعة
+   * تأكيد استلام طلب حجز موعد (قالب appointment_received)
    */
-  sendAppointmentReminderWhatsApp: async (params: {
+  sendAppointmentReceivedWhatsApp: async (params: {
     to: string;
     customerName: string;
     appointmentNumber: string;
@@ -333,14 +351,18 @@ export const whatsappNotificationService = {
     if (!params.to) return;
     try {
       const fallbackMessage = [
-        `تذكير: الأخ/الأخت ${params.customerName} المحترم،`,
-        `نود تذكيركم بموعد مقابلتكم اليوم ${params.appointmentDate} خلال ساعة في تمام الساعة ${params.appointmentTime} لمقابلة (${params.targetPerson}).`,
-        `📌 رقم الموعد: ${params.appointmentNumber}`,
-        `نتمنى لكم يوماً سعيداً.`
+        `مرحباً ${params.customerName}،`,
+        `تم استلام طلب حجز موعدك بنجاح لمقابلة (${params.targetPerson}).`,
+        ``,
+        `📌 رقم طلب الموعد: ${params.appointmentNumber}`,
+        `📅 التاريخ: ${params.appointmentDate}`,
+        `⏰ الوقت: ${params.appointmentTime}`,
+        ``,
+        `سيتم مراجعة الطلب والتأكيد عليك عبر واتساب قريباً.`
       ].join('\n');
 
       const message = await renderTemplate(
-        'appointment_reminder',
+        'appointment_received',
         {
           customer_name: params.customerName,
           appointment_number: params.appointmentNumber,
@@ -351,11 +373,124 @@ export const whatsappNotificationService = {
         fallbackMessage
       );
 
-      return await whatsAppProvider.sendMessage({
+      return await messageQueue.enqueue({
         to: params.to,
         message,
-        templateKey: 'appointment_reminder',
-        requestId: params.appointmentId
+        templateKey: 'appointment_received',
+        requestId: params.appointmentId,
+        priority: 2
+      });
+    } catch (err) {
+      console.warn('⚠️ WhatsApp appointment received notification skipped:', err);
+    }
+  },
+
+  /**
+   * إشعار إلغاء الموعد (قالب appointment_cancelled)
+   */
+  sendAppointmentCancelledWhatsApp: async (params: {
+    to: string;
+    customerName: string;
+    appointmentNumber: string;
+    appointmentDate: string;
+    reason?: string | null;
+    appointmentId?: string;
+  }) => {
+    if (!params.to) return;
+    try {
+      const fallbackMessage = [
+        `الأخ/الأخت ${params.customerName} المحترم،`,
+        `نود إعلامكم بأنه تم إلغاء موعد المقابلة رقم (${params.appointmentNumber}) المحدد ليوم ${params.appointmentDate}.`,
+        params.reason ? `السبب: ${params.reason}` : '',
+        `يمكنك حجز موعد جديد عبر المنظومة في أي وقت.`
+      ]
+        .filter(Boolean)
+        .join('\n');
+
+      const message = await renderTemplate(
+        'appointment_cancelled',
+        {
+          customer_name: params.customerName,
+          appointment_number: params.appointmentNumber,
+          appointment_date: params.appointmentDate,
+          reason: params.reason ? `\nالسبب: ${params.reason}\n` : ''
+        },
+        fallbackMessage
+      );
+
+      return await messageQueue.enqueue({
+        to: params.to,
+        message,
+        templateKey: 'appointment_cancelled',
+        requestId: params.appointmentId,
+        priority: 2
+      });
+    } catch (err) {
+      console.warn('⚠️ WhatsApp appointment cancelled notification skipped:', err);
+    }
+  },
+
+  /**
+   * تذكير بالموعد: stage = '1h' (قبل ساعة) أو '24h' (قبل يوم)
+   * dedupeKey يمنع تكرار الإرسال حتى لو تشغّلت المهمة مرتين أو من أكثر من نسخة.
+   */
+  sendAppointmentReminderWhatsApp: async (params: {
+    to: string;
+    customerName: string;
+    appointmentNumber: string;
+    targetPerson: string;
+    appointmentDate: string;
+    appointmentTime: string;
+    appointmentId?: string;
+    stage?: '1h' | '24h';
+    dedupeKey?: string;
+    immediate?: boolean;
+  }) => {
+    if (!params.to) return;
+    try {
+      const stage = params.stage || '1h';
+      const templateKey = stage === '24h' ? 'appointment_reminder_24h' : 'appointment_reminder';
+      const when = stage === '24h' ? `غداً ${params.appointmentDate}` : `اليوم ${params.appointmentDate} خلال ساعة`;
+      const fallbackMessage = [
+        `تذكير بموعد المقابلة ⏰`,
+        ``,
+        `الأخ/الأخت ${params.customerName} المحترم،`,
+        `نود تذكيركم بموعد مقابلتكم ${when} في تمام الساعة ${params.appointmentTime} لمقابلة (${params.targetPerson}).`,
+        ``,
+        `📌 رقم الموعد: ${params.appointmentNumber}`,
+        `📍 الموقع: مقر مكتب النائب`,
+        ``,
+        `يرجى الحضور في الوقت المحدد مع جلب كافة المستندات ذات الصلة. أهلاً وسهلاً بك.`
+      ].join('\n');
+
+      const message = await renderTemplate(
+        templateKey,
+        {
+          customer_name: params.customerName,
+          appointment_number: params.appointmentNumber,
+          target_person: params.targetPerson,
+          appointment_date: params.appointmentDate,
+          appointment_time: params.appointmentTime
+        },
+        fallbackMessage
+      );
+
+      if (params.immediate) {
+        return await whatsAppProvider.sendMessage({
+          to: params.to,
+          message,
+          templateKey,
+          requestId: params.appointmentId
+        });
+      }
+
+      return await messageQueue.enqueue({
+        to: params.to,
+        message,
+        templateKey,
+        requestId: params.appointmentId,
+        priority: 2,
+        dedupeKey: params.dedupeKey
       });
     } catch (err) {
       console.warn('⚠️ WhatsApp appointment reminder skipped:', err);
@@ -365,19 +500,30 @@ export const whatsappNotificationService = {
   /**
    * إرسال رسالة واتساب مخصصة مباشرة
    */
-  sendDirectWhatsApp: async (to: string, message: string, requestId?: string) => {
+  sendDirectWhatsApp: async (
+    to: string,
+    message: string,
+    requestId?: string,
+    opts?: { immediate?: boolean; priority?: number; dedupeKey?: string }
+  ): Promise<{ success: boolean; queued?: boolean; messageId?: string }> => {
     if (!to) return { success: false };
     try {
-      return await whatsAppProvider.sendMessage({
+      // Time-critical single messages (e.g. tracking OTP) skip the queue hop
+      if (opts?.immediate) {
+        const r = await whatsAppProvider.sendMessage({ to, message, requestId });
+        return { success: r.success, messageId: r.messageId };
+      }
+      const r = await messageQueue.enqueue({
         to,
         message,
-        requestId
+        requestId,
+        priority: opts?.priority ?? 4,
+        dedupeKey: opts?.dedupeKey
       });
+      return { success: r.success, queued: r.queued };
     } catch (err) {
       console.warn('⚠️ WhatsApp direct notification skipped:', err);
       return { success: false };
     }
   }
 };
-
-

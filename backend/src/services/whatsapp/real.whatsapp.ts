@@ -2,6 +2,31 @@ import { IWhatsAppProvider, SendWhatsAppOptions, SendWhatsAppResult } from './wh
 import { prisma } from '../../config/database.js';
 import { env } from '../../config/env.js';
 
+const REQUEST_TIMEOUT_MS = Math.max(3000, Number(process.env.WHATSAPP_TIMEOUT_MS || 12000));
+
+/** fetch with a hard timeout so a slow provider can never hang a worker/request */
+const fetchWithTimeout = async (url: string, init: RequestInit): Promise<Response> => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
+/** Message logging is bookkeeping: never make the sender wait for it */
+const logMessage = (data: {
+  phoneNumber: string;
+  templateKey: string | null;
+  messageContent: string;
+  status: string;
+  errorMessage: string | null;
+  requestId: string | null;
+}) => {
+  prisma.whatsAppMessageLog.create({ data }).catch(() => {});
+};
+
 export class RealWhatsAppProvider implements IWhatsAppProvider {
   /**
    * Normalizes phone number into international standard (digits only without leading zeros or +)
@@ -67,9 +92,9 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
 
   async sendMessage(options: SendWhatsAppOptions): Promise<SendWhatsAppResult> {
     const formattedPhone = this.formatPhoneNumber(options.to);
-    const apiKey = (process.env.WHATSAPP_API_KEY || (env as any).WHATSAPP_API_KEY || 'wps_7b5db2a829ff4377ad0c6c42ea7fe4af991c191992305e70eab136c8bb89f7d2').trim();
+    const apiKey = (process.env.WHATSAPP_API_KEY || (env as any).WHATSAPP_API_KEY || '').trim();
     const apiUrl = (process.env.WHATSAPP_API_URL || (env as any).WHATSAPP_API_URL || 'https://backendapi.wpsenderx.com/api/messages/send').trim();
-    const senderPhone = this.formatPhoneNumber(process.env.WHATSAPP_SENDER_PHONE || (env as any).WHATSAPP_SENDER_PHONE || '201206895603');
+    const senderPhone = this.formatPhoneNumber(process.env.WHATSAPP_SENDER_PHONE || (env as any).WHATSAPP_SENDER_PHONE || '');
 
     // 1. استخدام WPSender الرسمي في حال توفر المفتاح
     if (apiKey && apiKey.startsWith('wps_')) {
@@ -141,7 +166,7 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
           }
         }
 
-        const response = await fetch(apiUrl, {
+        const response = await fetchWithTimeout(apiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -151,33 +176,31 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
         });
 
         const responseData = await response.json().catch(() => ({}));
-        const isSuccess =
-          response.ok &&
-          (responseData.status === 'success' ||
-            responseData.success === true ||
-            responseData.data?.success === true ||
-            responseData.status === 'sent');
+        // Delivered = HTTP ok AND the provider did not explicitly report a failure
+        const explicitFailure =
+          responseData.success === false ||
+          responseData.data?.success === false ||
+          ['error', 'failed', 'fail'].includes(String(responseData.status || '').toLowerCase());
+        const isSuccess = response.ok && !explicitFailure;
 
         const messageId =
           responseData.data?.messageLogId ? String(responseData.data.messageLogId) :
           responseData.messageLogId ? String(responseData.messageLogId) :
           responseData.messageId ||
           `wps-${Date.now()}`;
-        const status: 'SENT' | 'FAILED' = isSuccess ? 'SENT' : (response.ok ? 'SENT' : 'FAILED');
+        const status: 'SENT' | 'FAILED' = isSuccess ? 'SENT' : 'FAILED';
         const errorMessage = !isSuccess ? (responseData.message || responseData.error || `HTTP ${response.status}`) : undefined;
 
-        await prisma.whatsAppMessageLog.create({
-          data: {
-            phoneNumber: formattedPhone,
-            templateKey: options.templateKey || null,
-            messageContent: options.document ? `${options.message}\n📎 [مرفق: ${options.document.filename}]` : options.message,
-            status: status,
-            errorMessage: errorMessage || null,
-            requestId: options.requestId || null
-          }
-        }).catch(() => {});
+        logMessage({
+          phoneNumber: formattedPhone,
+          templateKey: options.templateKey || null,
+          messageContent: options.document ? `${options.message}\n📎 [مرفق: ${options.document.filename}]` : options.message,
+          status,
+          errorMessage: errorMessage || null,
+          requestId: options.requestId || null
+        });
 
-        if (isSuccess || response.ok) {
+        if (isSuccess) {
           console.log(`✅ [WP SENDER SUCCESS] Message dispatched: ${messageId}`);
           return { success: true, messageId, status: 'SENT' };
         } else {
@@ -235,7 +258,7 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
           };
         }
 
-        const response = await fetch(ultraUrl, {
+        const response = await fetchWithTimeout(ultraUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded'
@@ -249,16 +272,14 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
         const status: 'SENT' | 'FAILED' = isSuccess ? 'SENT' : 'FAILED';
         const errorMessage = !isSuccess ? (data?.error || data?.message || `HTTP ${response.status}`) : undefined;
 
-        await prisma.whatsAppMessageLog.create({
-          data: {
-            phoneNumber: formattedPhone,
-            templateKey: options.templateKey || null,
-            messageContent: options.document ? `${options.message}\n📎 [مرفق: ${options.document.filename}]` : options.message,
-            status,
-            errorMessage: errorMessage || null,
-            requestId: options.requestId || null
-          }
-        }).catch(() => {});
+        logMessage({
+          phoneNumber: formattedPhone,
+          templateKey: options.templateKey || null,
+          messageContent: options.document ? `${options.message}\n📎 [مرفق: ${options.document.filename}]` : options.message,
+          status,
+          errorMessage: errorMessage || null,
+          requestId: options.requestId || null
+        });
 
         if (isSuccess) {
           console.log(`✅ [ULTRAMSG SUCCESS] Message dispatched: ${messageId}`);

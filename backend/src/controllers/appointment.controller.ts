@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../config/database.js';
 import { AppError } from '../middlewares/error.middleware.js';
 import { sendSuccess } from '../utils/apiResponse.js';
+import { formatDatePlus3 } from '../utils/dateTime.js';
 import { whatsappNotificationService } from '../services/whatsapp/whatsappNotification.service.js';
 import { realtimeService } from '../services/realtime.service.js';
 
@@ -148,13 +149,18 @@ export const bookPublicAppointment = async (req: Request, res: Response, next: N
 
     const targetPersonTitle = appointment.targetPerson === 'DEPUTY' ? 'سعادة النائب' : 'مدير المكتب';
 
-    // WhatsApp confirmation to citizen
-    try {
-      const msg = `مرحباً ${appointment.customerName}،\nتم استلام طلب حجز موعدك بنجاح لمقابلة (${targetPersonTitle}).\n\n📌 رقم طلب الموعد: ${appointment.appointmentNumber}\n📅 التاريخ: ${appointmentDate}\n⏰ الوقت: ${timeSlot}\n\nسيتم مراجعة الطلب والتأكيد عليك عبر واتساب قريباً.`;
-      await whatsappNotificationService.sendDirectWhatsApp(appointment.customerPhone, msg, appointment.id);
-    } catch (waErr) {
-      console.warn('⚠️ Could not send WhatsApp for appointment booking:', waErr);
-    }
+    // WhatsApp confirmation to citizen (queued: never blocks the response)
+    void whatsappNotificationService
+      .sendAppointmentReceivedWhatsApp({
+        to: appointment.customerPhone,
+        customerName: appointment.customerName,
+        appointmentNumber: appointment.appointmentNumber,
+        targetPerson: targetPersonTitle,
+        appointmentDate: formatDatePlus3(appointment.appointmentDate),
+        appointmentTime: appointment.timeSlot,
+        appointmentId: appointment.id
+      })
+      .catch((waErr) => console.warn('⚠️ Could not queue WhatsApp for appointment booking:', waErr));
 
     // Realtime Broadcast to Admins/Dashboard
     try {
@@ -229,15 +235,15 @@ export const updateAppointmentStatus = async (req: Request, res: Response, next:
       where: { id },
       data: {
         ...(status ? { status } : {}),
-        ...(status === 'CONFIRMED' ? { reminderSent: false } : {}),
+        ...(status === 'CONFIRMED' ? { reminderSent: false, reminder24Sent: false } : {}),
         ...(adminNotes !== undefined ? { adminNotes } : {}),
-        ...(appointmentDate ? { appointmentDate: new Date(appointmentDate), reminderSent: false } : {}),
-        ...(timeSlot ? { timeSlot, reminderSent: false } : {})
+        ...(appointmentDate ? { appointmentDate: new Date(appointmentDate), reminderSent: false, reminder24Sent: false } : {}),
+        ...(timeSlot ? { timeSlot, reminderSent: false, reminder24Sent: false } : {})
       }
     });
 
     const targetPersonTitle = updated.targetPerson === 'DEPUTY' ? 'سعادة النائب' : 'مدير المكتب';
-    const dateStr = updated.appointmentDate.toISOString().split('T')[0];
+    const dateStr = formatDatePlus3(updated.appointmentDate);
 
     // WhatsApp Notification on Status Change (Using Dynamic Templates)
     if (status === 'CONFIRMED') {
@@ -295,9 +301,16 @@ export const sendManualAppointmentReminder = async (req: Request, res: Response,
     }
 
     const targetPersonTitle = apt.targetPerson === 'DEPUTY' ? 'سعادة النائب' : 'مدير المكتب';
-    const msg = `تذكير بموعد المقابلة ⏰\n\nالأخ/الأخت ${apt.customerName} المحترم،\nنود تذكيركم بموعدكم القادم لمقابلة (${targetPersonTitle}) بعد قليل في تمام الساعة (${apt.timeSlot}).\n\n📌 رقم الموعد: ${apt.appointmentNumber}\n📍 الموقع: مقر مكتب النائب\n\nيرجى الحضور في الوقت المحدد مع جلب كافة المستندات ذات الصلة. أهلاً وسهلاً بك.`;
-
-    await whatsappNotificationService.sendDirectWhatsApp(apt.customerPhone, msg, apt.id);
+    await whatsappNotificationService.sendAppointmentReminderWhatsApp({
+      to: apt.customerPhone,
+      customerName: apt.customerName,
+      appointmentNumber: apt.appointmentNumber,
+      targetPerson: targetPersonTitle,
+      appointmentDate: formatDatePlus3(apt.appointmentDate),
+      appointmentTime: apt.timeSlot,
+      appointmentId: apt.id,
+      stage: '1h'
+    });
     await prisma.appointment.update({
       where: { id: apt.id },
       data: { reminderSent: true }
