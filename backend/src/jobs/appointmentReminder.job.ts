@@ -7,9 +7,9 @@ const BAGHDAD_OFFSET_MS = 3 * 3600 * 1000;
 const MIN = 60 * 1000;
 
 // Reminder windows (minutes before the appointment starts)
-const ONE_HOUR_MAX = 75; // send once we are inside the last 75 min (catches a late/paused job)
+const ONE_HOUR_MAX = 60; // fires on the first minute inside the last hour (and still catches a late/paused job)
 const DAY_BEFORE_MIN = 180; // don't send the "tomorrow" reminder if the visit is within 3h
-const DAY_BEFORE_MAX = 25 * 60; // ...and only inside the last 25h
+const DAY_BEFORE_MAX = 24 * 60; // ...and only inside the last 24h
 const STALE_AFTER_MIN = -30; // appointment started >30 min ago -> stop considering it
 
 const toLatinDigits = (v: string) =>
