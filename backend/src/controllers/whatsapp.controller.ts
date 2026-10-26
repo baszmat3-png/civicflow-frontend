@@ -4,6 +4,13 @@ import { prisma } from '../config/database.js';
 import { whatsAppProvider } from '../services/whatsapp/index.js';
 import { AppError } from '../middlewares/error.middleware.js';
 import { sendSuccess } from '../utils/apiResponse.js';
+import {
+  getGatewayConfig,
+  toPublicView,
+  saveGatewayConfig,
+  recordTestResult,
+  invalidateGatewayCache
+} from '../services/whatsapp/gateway.config.js';
 import { messageQueue } from '../services/messageQueue.service.js';
 import { invalidateTemplateCache } from '../services/whatsapp/whatsappNotification.service.js';
 
@@ -89,6 +96,56 @@ export const deleteTemplate = async (req: Request, res: Response, next: NextFunc
     await prisma.whatsAppTemplate.delete({ where: { id } });
     invalidateTemplateCache();
     return sendSuccess(res, null, 'تم حذف قالب الرسالة بنجاح');
+  } catch (error) {
+    next(error);
+  }
+};
+
+const gatewaySchema = z.object({
+  enabled: z.boolean().optional(),
+  provider: z.enum(['wpsender', 'ultramsg']).optional(),
+  apiUrl: z
+    .string()
+    .trim()
+    .refine((v) => v === '' || /^https:\/\//i.test(v), 'رابط الـ API يجب أن يبدأ بـ https://')
+    .optional(),
+  apiKey: z.string().trim().max(300).optional(),
+  senderPhone: z.string().trim().max(30).optional(),
+  ultraInstanceId: z.string().trim().max(100).optional(),
+  ultraToken: z.string().trim().max(300).optional()
+});
+
+export const getGateway = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    return sendSuccess(res, toPublicView(await getGatewayConfig()));
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateGateway = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data = gatewaySchema.parse(req.body);
+    await saveGatewayConfig(data);
+    return sendSuccess(res, toPublicView(await getGatewayConfig()), 'تم حفظ إعدادات ربط واتساب بنجاح');
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** Sends a real test message with the saved settings and records the outcome */
+export const testGateway = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { phoneNumber } = z.object({ phoneNumber: z.string().min(8, 'أدخل رقم هاتف صحيح للاختبار') }).parse(req.body);
+    invalidateGatewayCache();
+    const result = await whatsAppProvider.sendMessage({
+      to: phoneNumber,
+      message: '✅ رسالة اختبار من منصة CivicFlow: ربط واتساب يعمل بنجاح.',
+      templateKey: 'gateway_test'
+    });
+    const message = result.success ? 'تم إرسال رسالة الاختبار بنجاح' : result.errorMessage || 'فشل إرسال رسالة الاختبار';
+    await recordTestResult(result.success, message);
+    return sendSuccess(res, { success: result.success, message, ...toPublicView(await getGatewayConfig()) }, message);
   } catch (error) {
     next(error);
   }

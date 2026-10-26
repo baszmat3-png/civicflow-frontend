@@ -92,7 +92,7 @@ export const backupService = {
       prisma.requestAttachment.findMany(),
       prisma.finalResponse.findMany(),
       prisma.auditLog.findMany({ take: 5000, orderBy: { createdAt: 'desc' } }),
-      prisma.systemSetting.findMany(),
+      prisma.systemSetting.findMany({ where: { key: { not: 'whatsappGateway' } } }), // never export API secrets
       prisma.whatsAppTemplate.findMany()
     ]);
 

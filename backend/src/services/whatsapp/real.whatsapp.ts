@@ -1,6 +1,6 @@
 import { IWhatsAppProvider, SendWhatsAppOptions, SendWhatsAppResult } from './whatsapp.interface.js';
 import { prisma } from '../../config/database.js';
-import { env } from '../../config/env.js';
+import { getGatewayConfig } from './gateway.config.js';
 
 const REQUEST_TIMEOUT_MS = Math.max(3000, Number(process.env.WHATSAPP_TIMEOUT_MS || 12000));
 
@@ -92,12 +92,16 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
 
   async sendMessage(options: SendWhatsAppOptions): Promise<SendWhatsAppResult> {
     const formattedPhone = this.formatPhoneNumber(options.to);
-    const apiKey = (process.env.WHATSAPP_API_KEY || (env as any).WHATSAPP_API_KEY || '').trim();
-    const apiUrl = (process.env.WHATSAPP_API_URL || (env as any).WHATSAPP_API_URL || 'https://backendapi.wpsenderx.com/api/messages/send').trim();
-    const senderPhone = this.formatPhoneNumber(process.env.WHATSAPP_SENDER_PHONE || (env as any).WHATSAPP_SENDER_PHONE || '');
+    const cfg = await getGatewayConfig();
+    if (!cfg.enabled) {
+      return { success: false, status: 'FAILED', errorMessage: 'إرسال واتساب معطّل من إعدادات البوابة' };
+    }
+    const apiKey = cfg.apiKey;
+    const apiUrl = cfg.apiUrl;
+    const senderPhone = this.formatPhoneNumber(cfg.senderPhone);
 
     // 1. استخدام WPSender الرسمي في حال توفر المفتاح
-    if (apiKey && apiKey.startsWith('wps_')) {
+    if (cfg.provider === 'wpsender' && apiKey) {
       const isImg = Boolean(
         options.document?.isImage ||
         options.document?.mimetype?.startsWith('image/') ||
@@ -212,8 +216,8 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
     }
 
     // 2. تجربة UltraMsg كـ Fallback في حال توفره
-    const ultraInstance = (process.env.ULTRAMSG_INSTANCE_ID || (env as any).ULTRAMSG_INSTANCE_ID || '').trim();
-    const ultraToken = (process.env.ULTRAMSG_TOKEN || (env as any).ULTRAMSG_TOKEN || '').trim();
+    const ultraInstance = cfg.ultraInstanceId;
+    const ultraToken = cfg.ultraToken;
 
     if (ultraInstance && ultraToken) {
       const isDocument = Boolean(options.document?.url || options.document?.base64);
@@ -290,10 +294,14 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
       }
     }
 
+    const notConfigured =
+      cfg.provider === 'ultramsg' ? !(ultraInstance && ultraToken) && !apiKey : !apiKey && !(ultraInstance && ultraToken);
     return {
       success: false,
       status: 'FAILED',
-      errorMessage: 'تعذر إرسال رسالة الواتساب عبر جميع المزودين'
+      errorMessage: notConfigured
+        ? 'بوابة واتساب غير مهيأة: أدخل مفتاح API من إعدادات واتساب في البوابة'
+        : 'تعذر إرسال رسالة الواتساب عبر جميع المزودين'
     };
   }
 }

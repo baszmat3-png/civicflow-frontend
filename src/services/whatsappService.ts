@@ -1,7 +1,41 @@
 import { apiClient } from './apiClient';
 import { WhatsAppTemplate, WhatsAppSettings } from '../types';
 
+export interface WhatsAppGatewayView {
+  enabled: boolean;
+  provider: 'wpsender' | 'ultramsg';
+  apiUrl: string;
+  apiKeyMasked: string;
+  hasApiKey: boolean;
+  senderPhone: string;
+  ultraInstanceId: string;
+  ultraTokenMasked: string;
+  hasUltraToken: boolean;
+  configured: boolean;
+  lastTestAt: string | null;
+  lastTestOk: boolean | null;
+  lastTestMessage: string | null;
+}
+
+export interface WhatsAppGatewayUpdate {
+  enabled?: boolean;
+  provider?: 'wpsender' | 'ultramsg';
+  apiUrl?: string;
+  apiKey?: string;
+  senderPhone?: string;
+  ultraInstanceId?: string;
+  ultraToken?: string;
+}
+
 export const whatsappService = {
+  getGateway: async (): Promise<WhatsAppGatewayView> => apiClient.get<WhatsAppGatewayView>('/whatsapp/gateway'),
+
+  updateGateway: async (data: WhatsAppGatewayUpdate): Promise<WhatsAppGatewayView> =>
+    apiClient.put<WhatsAppGatewayView>('/whatsapp/gateway', data),
+
+  testGateway: async (phoneNumber: string): Promise<WhatsAppGatewayView & { success: boolean; message: string }> =>
+    apiClient.post('/whatsapp/gateway/test', { phoneNumber }, { timeoutMs: 60000 }),
+
   getTemplates: async (): Promise<WhatsAppTemplate[]> => {
     return apiClient.get<WhatsAppTemplate[]>('/whatsapp/templates');
   },
