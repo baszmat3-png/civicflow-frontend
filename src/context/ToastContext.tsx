@@ -55,35 +55,35 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <ToastContext.Provider value={{ toasts, showToast, removeToast, success, error, warning, info }}>
       {children}
       {/* Toast container */}
-      <div className="fixed bottom-5 left-5 z-50 flex flex-col gap-2 max-w-md w-full pointer-events-none">
+      <div className="fixed bottom-24 lg:bottom-5 left-3 right-3 sm:right-auto sm:left-5 z-[9999] flex flex-col gap-2 sm:max-w-md pointer-events-none">
         {toasts.map((toast) => {
           const bgColors = {
-            success: 'bg-emerald-50 border-emerald-300 text-emerald-950',
-            error: 'bg-rose-50 border-rose-300 text-rose-950',
-            warning: 'bg-amber-50 border-amber-300 text-amber-950',
-            info: 'bg-blue-50 border-blue-300 text-blue-950',
+            success: 'cf-toast cf-toast-success',
+            error: 'cf-toast cf-toast-error',
+            warning: 'cf-toast cf-toast-warning',
+            info: 'cf-toast cf-toast-info',
           };
 
           const icons = {
-            success: <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />,
-            error: <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />,
-            warning: <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />,
-            info: <Info className="w-5 h-5 text-blue-600 shrink-0" />,
+            success: <CheckCircle2 className="w-5 h-5 shrink-0" style={{ color: 'var(--toast-accent)' }} />,
+            error: <AlertCircle className="w-5 h-5 shrink-0" style={{ color: 'var(--toast-accent)' }} />,
+            warning: <AlertTriangle className="w-5 h-5 shrink-0" style={{ color: 'var(--toast-accent)' }} />,
+            info: <Info className="w-5 h-5 shrink-0" style={{ color: 'var(--toast-accent)' }} />,
           };
 
           return (
             <div
               key={toast.id}
-              className={`pointer-events-auto flex items-start gap-3 p-4 rounded-xl border shadow-lg transition-all transform translate-y-0 opacity-100 ${bgColors[toast.type]}`}
+              className={`pointer-events-auto flex items-start gap-3 p-4 rounded-xl border shadow-lg transition-all ${bgColors[toast.type]}`}
             >
               {icons[toast.type]}
               <div className="flex-1 text-sm">
                 <h4 className="font-bold">{toast.title}</h4>
-                {toast.message && <p className="mt-0.5 opacity-90 leading-relaxed">{toast.message}</p>}
+                {toast.message && <p className="mt-0.5 leading-relaxed">{toast.message}</p>}
               </div>
               <button
                 onClick={() => removeToast(toast.id)}
-                className="p-1 rounded-md opacity-60 hover:opacity-100 hover:bg-black/5 transition"
+                className="p-1 rounded-md opacity-70 hover:opacity-100 hover:bg-black/10 transition"
               >
                 <X className="w-4 h-4" />
               </button>

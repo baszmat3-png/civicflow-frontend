@@ -274,7 +274,9 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
           itemMsg,
           selectedTemplateKey !== 'custom' ? selectedTemplateKey : undefined,
           currentItem.requestId || currentItem.id,
-          attachedFile
+          attachedFile,
+          // Text-only: the server queues each message and staggers delivery (anti-ban spacing) with automatic retries
+          attachedFile ? undefined : i * calculatedDelaySec
         );
 
         successCount++;
@@ -298,7 +300,7 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
       }
 
       // If not the last item, apply anti-ban countdown delay
-      if (i < recipientList.length - 1 && !isCancelledRef.current) {
+      if (attachedFile && i < recipientList.length - 1 && !isCancelledRef.current) {
         for (let s = calculatedDelaySec; s > 0; s--) {
           if (isCancelledRef.current) break;
           while (isPausedRef.current && !isCancelledRef.current) {
@@ -316,7 +318,12 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
 
     if (!isCancelledRef.current) {
       if (failCount === 0) {
-        success('تم الإرسال بنجاح', `تم إرسال ${successCount} رسالة واتساب لجميع المستلمين المحددين.`);
+        success(
+          attachedFile ? 'تم الإرسال بنجاح' : 'تمت جدولة الرسائل',
+          attachedFile
+            ? `تم إرسال ${successCount} رسالة واتساب لجميع المستلمين المحددين.`
+            : `جُدولت ${successCount} رسالة وستصل تباعاً بفارق ${calculatedDelaySec} ثانية. تُعاد المحاولة تلقائياً عند أي تعثّر، وتابع الحالة من «مراقبة الرسائل».`
+        );
         if (onSuccess) onSuccess();
       } else {
         warning(

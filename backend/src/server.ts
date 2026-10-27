@@ -8,6 +8,7 @@ import { startMessageQueueWorker, stopMessageQueueWorker } from './services/mess
 import { seedDatabase } from './seed.js';
 import { verifySmtpConnection } from './services/email.service.js';
 import { ensureSystemPermissions } from './controllers/role.controller.js';
+import { ensureDefaultWhatsAppTemplates } from './controllers/setting.controller.js';
 
 import { IRAQI_MINISTRIES, DEFAULT_REQUEST_TYPES } from './constants/iraqMinistries.js';
 
@@ -306,6 +307,7 @@ async function startServer() {
     await ensureIraqiMinistries();
     await ensureDefaultRequestTypes();
     await ensureSystemPermissions();
+    await ensureDefaultWhatsAppTemplates().catch((e) => console.warn('⚠️ Template sync notice:', e?.message || e));
 
     // Start background jobs (SLA checker + Automated daily database backups + Appointment 30-min WhatsApp reminders)
     startSlaBackgroundJob();

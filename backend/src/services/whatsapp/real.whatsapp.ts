@@ -2,7 +2,7 @@ import { IWhatsAppProvider, SendWhatsAppOptions, SendWhatsAppResult } from './wh
 import { prisma } from '../../config/database.js';
 import { getGatewayConfig } from './gateway.config.js';
 
-const REQUEST_TIMEOUT_MS = Math.max(3000, Number(process.env.WHATSAPP_TIMEOUT_MS || 12000));
+const REQUEST_TIMEOUT_MS = Math.max(3000, Number(process.env.WHATSAPP_TIMEOUT_MS || 45000));
 
 /** fetch with a hard timeout so a slow provider can never hang a worker/request */
 const fetchWithTimeout = async (url: string, init: RequestInit): Promise<Response> => {

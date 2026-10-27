@@ -28,24 +28,36 @@ const loadTemplateContent = async (templateKey: string): Promise<string | null> 
 };
 
 const renderTemplate = async (
-  templateKey: string,
+  templateKey: string | string[],
   variables: Record<string, string>,
   defaultFallback: string
 ): Promise<string> => {
-  try {
-    const content = await loadTemplateContent(templateKey);
-    if (content) {
-      let rendered = content;
-      for (const [key, value] of Object.entries(variables)) {
-        rendered = rendered.split(`{{${key}}}`).join(value || '');
+  // Several keys may be tried in order (e.g. the pre-designed 'receive_request' template)
+  const keys = Array.isArray(templateKey) ? templateKey : [templateKey];
+  for (const key of keys) {
+    try {
+      const content = await loadTemplateContent(key);
+      if (content) {
+        let rendered = content;
+        for (const [name, value] of Object.entries(variables)) {
+          rendered = rendered.split(`{{${name}}}`).join(value || '');
+        }
+        return rendered;
       }
-      return rendered;
+    } catch (err) {
+      console.warn(`⚠️ Could not load template ${key} from database:`, err);
     }
-  } catch (err) {
-    console.warn(`⚠️ Could not load template ${templateKey} from database, using fallback:`, err);
   }
-
   return defaultFallback;
+};
+
+/** Pick the pre-designed template that matches the new request status */
+const statusTemplateKeys = (status: string): string[] => {
+  const st = status || '';
+  if (st.includes('مستند') || st.includes('نواقص')) return ['docs_required', 'status_updated', 'status_changed'];
+  if (st.includes('موافق') || st.includes('معتمد')) return ['approved', 'status_updated', 'status_changed'];
+  if (st.includes('جاهز')) return ['ready_for_pickup', 'status_updated', 'status_changed'];
+  return ['status_updated', 'status_changed'];
 };
 
 export const whatsappNotificationService = {
@@ -76,7 +88,7 @@ export const whatsappNotificationService = {
         .join('\n');
 
       const message = await renderTemplate(
-        'request_received',
+        ['request_received', 'receive_request'],
         {
           customer_name: params.customerName,
           request_number: params.requestNumber,
@@ -126,7 +138,7 @@ export const whatsappNotificationService = {
         .join('\n');
 
       const message = await renderTemplate(
-        'status_updated',
+        statusTemplateKeys(params.newStatus),
         {
           customer_name: params.customerName,
           request_number: params.requestNumber,
@@ -177,7 +189,7 @@ export const whatsappNotificationService = {
         .join('\n');
 
       const message = await renderTemplate(
-        'final_response_ready',
+        ['final_response_ready', 'ready_for_pickup'],
         {
           customer_name: params.customerName,
           request_number: params.requestNumber,

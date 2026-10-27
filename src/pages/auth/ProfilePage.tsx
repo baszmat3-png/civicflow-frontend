@@ -233,8 +233,8 @@ export const ProfilePage: React.FC = () => {
 
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
               <span className="text-xs font-semibold text-slate-500 block mb-1">البريد الإلكتروني</span>
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-bold text-slate-800 font-mono truncate">{user?.email}</p>
+              <div className="flex flex-col items-start gap-2">
+                <p className="font-bold text-slate-800 font-mono break-all" dir="ltr">{user?.email}</p>
                 {isEmailVerified ? (
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 shrink-0">
                     <CheckCircle2 className="w-3.5 h-3.5" />
@@ -262,8 +262,8 @@ export const ProfilePage: React.FC = () => {
 
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
               <span className="text-xs font-semibold text-slate-500 block mb-1">رقم الهاتف الجوال</span>
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-bold text-slate-800 font-mono truncate">{user?.phone || 'غير مسجل'}</p>
+              <div className="flex flex-col items-start gap-2">
+                <p className="font-bold text-slate-800 font-mono break-all" dir="ltr">{user?.phone || 'غير مسجل'}</p>
                 {isPhoneVerified ? (
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 shrink-0">
                     <CheckCircle2 className="w-3.5 h-3.5" />

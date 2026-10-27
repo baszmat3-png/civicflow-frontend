@@ -63,6 +63,7 @@ import { SlaSettingsPage } from '../pages/settings/SlaSettingsPage';
 import { NotificationSettingsPage } from '../pages/settings/NotificationSettingsPage';
 import { WhatsAppSettingsPage } from '../pages/settings/WhatsAppSettingsPage';
 import { WhatsAppTemplatesPage } from '../pages/settings/WhatsAppTemplatesPage';
+import { WhatsAppQueuePage } from '../pages/settings/WhatsAppQueuePage';
 import { BackupSettingsPage } from '../pages/settings/BackupSettingsPage';
 import { AppointmentSettingsPage } from '../pages/settings/AppointmentSettingsPage';
 import { RatingModerationPage } from '../pages/settings/RatingModerationPage';
@@ -418,6 +419,14 @@ export const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute permission={PERMISSIONS.SETTINGS_MANAGE}>
               <WhatsAppTemplatesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings/whatsapp/queue"
+          element={
+            <ProtectedRoute permission={PERMISSIONS.SETTINGS_MANAGE}>
+              <WhatsAppQueuePage />
             </ProtectedRoute>
           }
         />

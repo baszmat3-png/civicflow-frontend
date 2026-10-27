@@ -1,5 +1,6 @@
 import { prisma } from '../config/database.js';
 import { whatsAppProvider } from './whatsapp/index.js';
+import { getGatewayConfig } from './whatsapp/gateway.config.js';
 
 /**
  * Durable outbound message queue.
@@ -132,7 +133,14 @@ export const messageQueue = {
       select: { id: true, phoneNumber: true, templateKey: true, attempts: true, lastError: true, updatedAt: true }
     });
 
+    const recent = await prisma.outboundMessage.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+      select: { id: true, phoneNumber: true, templateKey: true, status: true, attempts: true, lastError: true, createdAt: true, sentAt: true, nextAttemptAt: true }
+    });
+
     return {
+      recent,
       counts,
       oldestPendingAgeSeconds: oldestPending ? Math.round((Date.now() - oldestPending.createdAt.getTime()) / 1000) : 0,
       concurrency: CONCURRENCY,
@@ -264,6 +272,24 @@ async function housekeeping() {
   }
 }
 
+/**
+ * Free-tier gateways (e.g. a WPSender instance hosted on Render) go to sleep when idle and the first
+ * request then takes ~1 minute. A light GET every few minutes keeps it awake so messages go out at once.
+ */
+const keepGatewayWarm = async () => {
+  try {
+    const cfg = await getGatewayConfig();
+    if (!cfg.enabled || cfg.provider !== 'wpsender' || !cfg.apiKey || !cfg.apiUrl) return;
+    const origin = new URL(cfg.apiUrl).origin;
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 20000);
+    await fetch(origin, { method: 'GET', signal: controller.signal }).catch(() => {});
+    clearTimeout(t);
+  } catch {
+    /* best effort */
+  }
+};
+
 export const startMessageQueueWorker = () => {
   if (started) return;
   started = true;
@@ -273,6 +299,9 @@ export const startMessageQueueWorker = () => {
     void drain();
   }, POLL_INTERVAL_MS);
   const hk = setInterval(() => void housekeeping(), 10 * 60 * 1000);
+  const warm = setInterval(() => void keepGatewayWarm(), 8 * 60 * 1000);
+  warm.unref?.();
+  void keepGatewayWarm();
   pollTimer.unref?.();
   hk.unref?.();
 

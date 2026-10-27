@@ -239,6 +239,23 @@ export const sendManualWhatsApp = async (req: Request, res: Response, next: Next
 
     const document = buildDocumentAttachment(req, req.file);
 
+    // Plain text goes through the durable queue: instant response, automatic retries with backoff,
+    // and it survives a slow/sleeping gateway. Attachments are still sent inline.
+    if (!document) {
+      const delayMs = Math.max(0, Number(req.body.delaySeconds || 0)) * 1000;
+      const q = await messageQueue.enqueue({
+        to: phoneNumber,
+        message,
+        templateKey,
+        requestId,
+        priority: 6,
+        delayMs,
+        maxAttempts: 6
+      });
+      if (!q.success) throw new AppError('تعذر جدولة الرسالة', 400, 'WHATSAPP_QUEUE_FAILED');
+      return sendSuccess(res, { success: true, queued: true, status: 'QUEUED' }, 'تمت جدولة الرسالة وسيتم إرسالها خلال لحظات');
+    }
+
     const result = await whatsAppProvider.sendMessage({
       to: phoneNumber,
       message,

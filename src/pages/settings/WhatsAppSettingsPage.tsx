@@ -152,6 +152,14 @@ export const WhatsAppSettingsPage: React.FC = () => {
           <Button
             variant="secondary"
             size="sm"
+            onClick={() => navigate('/settings/whatsapp/queue')}
+            icon={<Send className="w-4 h-4" />}
+          >
+            مراقبة الرسائل
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => navigate('/settings/whatsapp/templates')}
             icon={<FileCode2 className="w-4 h-4" />}
           >

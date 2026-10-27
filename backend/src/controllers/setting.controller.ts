@@ -71,6 +71,16 @@ const DEFAULT_WA_TEMPLATES = [
   }
 ];
 
+/** Make sure the pre-designed WhatsApp templates exist (called at startup and on settings load) */
+export const ensureDefaultWhatsAppTemplates = async () => {
+  for (const dt of DEFAULT_WA_TEMPLATES) {
+    const existing = await prisma.whatsAppTemplate.findUnique({ where: { key: dt.key } });
+    if (!existing) {
+      await prisma.whatsAppTemplate.create({ data: { key: dt.key, title: dt.title, content: dt.content, variables: dt.variables } });
+    }
+  }
+};
+
 export const getSystemSettings = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // Ensure all standard WhatsApp templates exist in DB

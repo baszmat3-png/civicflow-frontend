@@ -36,6 +36,9 @@ export const whatsappService = {
   testGateway: async (phoneNumber: string): Promise<WhatsAppGatewayView & { success: boolean; message: string }> =>
     apiClient.post('/whatsapp/gateway/test', { phoneNumber }, { timeoutMs: 60000 }),
 
+  getQueue: async (): Promise<any> => apiClient.get('/whatsapp/queue'),
+  retryQueue: async (): Promise<{ count: number }> => apiClient.post('/whatsapp/queue/retry', {}),
+
   getTemplates: async (): Promise<WhatsAppTemplate[]> => {
     return apiClient.get<WhatsAppTemplate[]>('/whatsapp/templates');
   },
@@ -61,7 +64,8 @@ export const whatsappService = {
     message: string,
     templateKey?: string,
     requestId?: string,
-    document?: File | null
+    document?: File | null,
+    delaySeconds?: number
   ) => {
     if (document) {
       const fd = new FormData();
@@ -76,7 +80,8 @@ export const whatsappService = {
       phoneNumber,
       message,
       templateKey,
-      requestId
+      requestId,
+      delaySeconds
     }, { timeoutMs: 60000 });
   },
 
