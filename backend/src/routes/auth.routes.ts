@@ -12,7 +12,10 @@ import {
   sendVerificationOTP,
   verifyEmailOTP,
   sendPhoneVerificationOTP,
-  verifyPhoneOTP
+  verifyPhoneOTP,
+  twoFactorSetup,
+  twoFactorEnable,
+  twoFactorDisable
 } from '../controllers/auth.controller.js';
 import { sendOtp, verifyOtp, resendOtp } from '../controllers/otp.controller.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
@@ -40,3 +43,6 @@ authRouter.post('/resend-otp', authLimiter, resendOtp);
 authRouter.get('/me', authenticate, getMe);
 authRouter.patch('/profile', authenticate, updateProfile);
 authRouter.post('/change-password', authenticate, changePassword);
+authRouter.post('/2fa/setup', authenticate, twoFactorSetup);
+authRouter.post('/2fa/enable', authenticate, authLimiter, twoFactorEnable);
+authRouter.post('/2fa/disable', authenticate, authLimiter, twoFactorDisable);

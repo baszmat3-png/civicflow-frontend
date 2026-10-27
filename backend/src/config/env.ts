@@ -18,9 +18,9 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('production'),
   PORT: z.coerce.number().default(5000),
   FRONTEND_URL: z.string().default('https://civicflow-frontend-1-hoy9.onrender.com'),
-  JWT_ACCESS_SECRET: z.string().default('civicflow_jwt_access_secret_rotated_2026_x89q_session_wipe'),
+  JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 characters').optional(),
   JWT_ACCESS_EXPIRES_IN: z.string().default('365d'),
-  JWT_REFRESH_SECRET: z.string().default('civicflow_jwt_refresh_secret_rotated_2026_z91k_session_wipe'),
+  JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters').optional(),
   JWT_REFRESH_EXPIRES_IN: z.string().default('365d'),
   STORAGE_PROVIDER: z.enum(['local', 's3', 'cloudinary']).default('local'),
   UPLOAD_DIR: z.string().default('uploads'),
@@ -78,4 +78,22 @@ if (!otpParsed.success) {
   throw new Error('OTP configuration validation failed');
 }
 
-export const env = { ...parsed.data, ...otpParsed.data };
+// JWT secrets must come from the environment. In production a missing secret is a hard error
+// (a default committed to git would let anyone forge tokens); in dev/test a random one is used.
+import crypto from 'crypto';
+const resolveSecret = (name: 'JWT_ACCESS_SECRET' | 'JWT_REFRESH_SECRET'): string => {
+  const v = parsed.data[name];
+  if (v) return v;
+  if (parsed.data.NODE_ENV === 'production') {
+    throw new Error(`${name} is required in production (set it in the Render dashboard)`);
+  }
+  console.warn(`⚠️ ${name} not set: using a random per-process secret (sessions reset on restart).`);
+  return crypto.randomBytes(48).toString('hex');
+};
+
+export const env = {
+  ...parsed.data,
+  ...otpParsed.data,
+  JWT_ACCESS_SECRET: resolveSecret('JWT_ACCESS_SECRET'),
+  JWT_REFRESH_SECRET: resolveSecret('JWT_REFRESH_SECRET')
+};

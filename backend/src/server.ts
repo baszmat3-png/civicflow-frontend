@@ -195,7 +195,11 @@ async function ensureRealAccounts() {
       });
     }
 
-    const defaultPasswordHash = await hashPassword('CivicFlow@2026!');
+    // Never ship a known default password: use DEFAULT_USER_PASSWORD, else a random one shown once in the logs
+    const bootstrapPassword =
+      process.env.DEFAULT_USER_PASSWORD || (await import('crypto')).randomBytes(9).toString('base64url') + 'A1!';
+    let bootstrapPasswordUsed = false;
+    const defaultPasswordHash = await hashPassword(bootstrapPassword);
 
     const accountsToEnsure = [
       {
@@ -245,6 +249,7 @@ async function ensureRealAccounts() {
             passwordHash: defaultPasswordHash
           }
         });
+        bootstrapPasswordUsed = true;
         console.log(`✅ Automatically registered user account: ${acc.email}`);
       } else {
         await prisma.user.update({
@@ -276,6 +281,9 @@ async function ensureRealAccounts() {
       // ignore
     }
 
+    if (bootstrapPasswordUsed && !process.env.DEFAULT_USER_PASSWORD) {
+      console.log(`🔑 New accounts were created with temporary password: ${bootstrapPassword}  (change it after first login)`);
+    }
     console.log('✅ Real user accounts synchronized successfully in PostgreSQL database.');
   } catch (err) {
     console.warn('⚠️ Accounts sync notice:', err);

@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { prisma } from '../config/database.js';
+import { encryptText } from '../utils/secretBox.js';
 
 const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
 
@@ -150,7 +151,15 @@ export const backupService = {
       }
     };
 
-    fs.writeFileSync(filePath, JSON.stringify(backupPayload, null, 2), 'utf8');
+    // Backups hold password hashes and personal data: encrypt at rest (AES-256-GCM).
+    // timestamp/counts stay readable so the backups list works without the key.
+    const envelope = {
+      version: backupPayload.version,
+      timestamp: backupPayload.timestamp,
+      counts,
+      ...encryptText(JSON.stringify(backupPayload))
+    };
+    fs.writeFileSync(filePath, JSON.stringify(envelope), 'utf8');
     const stat = fs.statSync(filePath);
 
     console.log(`✅ [BACKUP] Successfully created ${filename} (${(stat.size / 1024).toFixed(1)} KB)`);

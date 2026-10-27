@@ -53,9 +53,12 @@ const resetPasswordOtpSchema = z.object({
 // Auth Controllers
 // ============================================================================
 
+import { verifyTotp, generateTotpSecret, buildOtpAuthUrl } from '../utils/totp.js';
+
 export const login = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password } = loginSchema.parse(req.body);
+    const twoFactorCode = typeof req.body?.twoFactorCode === 'string' ? req.body.twoFactorCode : '';
 
     const user = await prisma.user.findFirst({
       where: { email: { equals: email.trim(), mode: 'insensitive' } },
@@ -83,6 +86,16 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     const isMatch = await comparePassword(password, user.passwordHash);
     if (!isMatch) {
       throw new AppError('البريد الإلكتروني أو كلمة المرور غير صحيحة', 401, 'INVALID_CREDENTIALS');
+    }
+
+    // Two-factor authentication (TOTP) for accounts that enabled it
+    if (user.twoFactorEnabled && user.twoFactorSecret) {
+      if (!twoFactorCode) {
+        throw new AppError('أدخل رمز المصادقة الثنائية من تطبيق المصادقة', 403, 'TWO_FACTOR_REQUIRED');
+      }
+      if (!verifyTotp(user.twoFactorSecret, twoFactorCode)) {
+        throw new AppError('رمز المصادقة الثنائية غير صحيح', 401, 'INVALID_TWO_FACTOR');
+      }
     }
 
     // Update lastLogin
@@ -348,6 +361,7 @@ export const getMe = async (req: Request, res: Response, next: NextFunction) => 
       lastLogin: user.lastLogin ? formatDateTimePlus3(user.lastLogin) : 'الآن',
       avatarUrl: user.avatarUrl || undefined,
       assignedRequestsCount: user.assignedRequests.length,
+      twoFactorEnabled: user.twoFactorEnabled,
       permissions
     };
 
@@ -701,6 +715,56 @@ export const verifyPhoneOTP = async (req: Request, res: Response, next: NextFunc
       { phone, verified: true },
       'تم التحقق من رقم الهاتف وتأكيد الواتساب بنجاح!'
     );
+  } catch (error) {
+    next(error);
+  }
+};
+
+// -------------------------------------------------------------
+// Two-factor authentication (TOTP)
+// -------------------------------------------------------------
+export const twoFactorSetup = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) throw new AppError('غير مصرح لك بالوصول', 401, 'UNAUTHORIZED');
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user) throw new AppError('المستخدم غير موجود', 404, 'USER_NOT_FOUND');
+    if (user.twoFactorEnabled) throw new AppError('المصادقة الثنائية مفعّلة بالفعل', 400, 'ALREADY_ENABLED');
+
+    const secret = generateTotpSecret();
+    await prisma.user.update({ where: { id: user.id }, data: { twoFactorSecret: secret, twoFactorEnabled: false } });
+    return sendSuccess(res, { secret, otpauthUrl: buildOtpAuthUrl(secret, user.email) }, 'أضف المفتاح إلى تطبيق المصادقة ثم أدخل الرمز للتفعيل');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const twoFactorEnable = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) throw new AppError('غير مصرح لك بالوصول', 401, 'UNAUTHORIZED');
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user?.twoFactorSecret) throw new AppError('ابدأ إعداد المصادقة الثنائية أولاً', 400, 'SETUP_REQUIRED');
+    if (!verifyTotp(user.twoFactorSecret, String(req.body?.code || ''))) {
+      throw new AppError('الرمز غير صحيح، تأكد من وقت الهاتف وحاول مجدداً', 400, 'INVALID_TWO_FACTOR');
+    }
+    await prisma.user.update({ where: { id: user.id }, data: { twoFactorEnabled: true } });
+    return sendSuccess(res, { twoFactorEnabled: true }, 'تم تفعيل المصادقة الثنائية');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const twoFactorDisable = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) throw new AppError('غير مصرح لك بالوصول', 401, 'UNAUTHORIZED');
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user) throw new AppError('المستخدم غير موجود', 404, 'USER_NOT_FOUND');
+    const okPassword = await comparePassword(String(req.body?.password || ''), user.passwordHash);
+    if (!okPassword) throw new AppError('كلمة المرور غير صحيحة', 400, 'INVALID_PASSWORD');
+    if (user.twoFactorEnabled && user.twoFactorSecret && !verifyTotp(user.twoFactorSecret, String(req.body?.code || ''))) {
+      throw new AppError('رمز المصادقة الثنائية غير صحيح', 400, 'INVALID_TWO_FACTOR');
+    }
+    await prisma.user.update({ where: { id: user.id }, data: { twoFactorEnabled: false, twoFactorSecret: null } });
+    return sendSuccess(res, { twoFactorEnabled: false }, 'تم إيقاف المصادقة الثنائية');
   } catch (error) {
     next(error);
   }

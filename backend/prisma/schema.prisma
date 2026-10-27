@@ -57,6 +57,8 @@ model User {
   assignedMinistries   String[]               @default([])
   isAutoAssignEnabled  Boolean                @default(true)
   lastLogin            DateTime?
+  twoFactorSecret      String?
+  twoFactorEnabled     Boolean                @default(false)
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
 

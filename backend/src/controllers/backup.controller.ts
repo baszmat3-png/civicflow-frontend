@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { backupService } from '../services/backup.service.js';
 import { sendSuccess } from '../utils/apiResponse.js';
 import { AppError } from '../middlewares/error.middleware.js';
+import { decryptEnvelope, isEncryptedEnvelope } from '../utils/secretBox.js';
 
 export const listBackups = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -69,6 +70,15 @@ export const restoreBackup = async (req: Request, res: Response, next: NextFunct
             fs.unlinkSync(req.file.path);
           } catch {}
         }
+      }
+    }
+
+    // Encrypted backups (AES-256-GCM): decrypt first
+    if (isEncryptedEnvelope(payload)) {
+      try {
+        payload = JSON.parse(decryptEnvelope(payload));
+      } catch {
+        throw new AppError('تعذر فك تشفير النسخة الاحتياطية: مفتاح التشفير غير مطابق أو الملف تالف', 400, 'BACKUP_DECRYPT_FAILED');
       }
     }
 
