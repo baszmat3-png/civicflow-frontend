@@ -289,6 +289,14 @@ async function startServer() {
     await prisma.$connect();
     console.log('✅ PostgreSQL database connected successfully via Prisma');
 
+    // Start accepting requests immediately (cold starts on free hosting were timing clients out while
+    // the data sync below ran); the sync/seed work continues in the background of the same process.
+    const server = app.listen(env.PORT, () => {
+      console.log(`🚀 CivicFlow Backend running in ${env.NODE_ENV} mode on port ${env.PORT}`);
+      console.log(`👉 Health check: http://localhost:${env.PORT}/api/health`);
+    });
+
+
     // Automatically seed if database is empty
     try {
       const userCount = await prisma.user.count();
@@ -318,11 +326,6 @@ async function startServer() {
     // Safely verify SMTP configuration in the background
     verifySmtpConnection().catch((smtpErr) => {
       console.warn('⚠️ SMTP startup verification notice:', smtpErr?.message || smtpErr);
-    });
-
-    const server = app.listen(env.PORT, () => {
-      console.log(`🚀 CivicFlow Backend running in ${env.NODE_ENV} mode on port ${env.PORT}`);
-      console.log(`👉 Health check: http://localhost:${env.PORT}/api/health`);
     });
 
     const shutdown = async (signal: string) => {

@@ -3,6 +3,7 @@ import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { useToast } from '../../context/ToastContext';
 import { whatsappService } from '../../services/whatsappService';
+import { API_BASE_URL } from '../../services/apiClient';
 import { WhatsAppTemplate } from '../../types';
 import {
   MessageSquare,
@@ -37,6 +38,31 @@ export interface BulkRecipientItem {
   title?: string;
   trackingLink?: string;
 }
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Free-tier servers sleep; ping /health until the API answers (max ~2 min) so the first sends don't time out */
+const wakeServer = async (): Promise<boolean> => {
+  for (let i = 0; i < 15; i++) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 10000);
+      const res = await fetch(`${API_BASE_URL}/health`, { signal: ctrl.signal, cache: 'no-store' });
+      clearTimeout(t);
+      if (res.ok) return true;
+    } catch {
+      /* still waking up */
+    }
+    await sleep(4000);
+  }
+  return false;
+};
+
+const isTransient = (err: any) => {
+  const code = String(err?.code || '');
+  const status = Number(err?.status || err?.statusCode || 0);
+  return code === 'TIMEOUT' || code === 'NETWORK_ERROR' || status === 0 || status === 408 || status >= 500;
+};
 
 interface BulkWhatsAppModalProps {
   isOpen: boolean;
@@ -246,7 +272,11 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
 
     let successCount = 0;
     let failCount = 0;
+    const firstErrors: string[] = [];
     const currentMsgSnapshot = messageText;
+
+    setCountdown(0);
+    await wakeServer();
 
     for (let i = 0; i < recipientList.length; i++) {
       if (isCancelledRef.current) break;
@@ -269,15 +299,26 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
       const itemMsg = formatMessageForRecipient(currentItem, currentMsgSnapshot);
 
       try {
-        await whatsappService.sendWhatsApp(
-          targetPhone,
-          itemMsg,
-          selectedTemplateKey !== 'custom' ? selectedTemplateKey : undefined,
-          currentItem.requestId || currentItem.id,
-          attachedFile,
-          // Text-only: the server queues each message and staggers delivery (anti-ban spacing) with automatic retries
-          attachedFile ? undefined : i * calculatedDelaySec
-        );
+        let attempt = 0;
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          try {
+            await whatsappService.sendWhatsApp(
+              targetPhone,
+              itemMsg,
+              selectedTemplateKey !== 'custom' ? selectedTemplateKey : undefined,
+              currentItem.requestId || currentItem.id,
+              attachedFile,
+              // Text-only: the server queues each message and staggers delivery (anti-ban spacing) with automatic retries
+              attachedFile ? undefined : i * calculatedDelaySec
+            );
+            break;
+          } catch (inner: any) {
+            attempt++;
+            if (attempt >= 3 || !isTransient(inner)) throw inner;
+            await sleep(5000 * attempt); // server/gateway waking up: wait and retry
+          }
+        }
 
         successCount++;
         setRecipientList((prev) =>
@@ -286,6 +327,7 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
       } catch (err: any) {
         console.warn(`Failed to send to ${targetPhone}`, err);
         failCount++;
+        if (firstErrors.length < 2) firstErrors.push(err?.message || 'تعذر الإرسال عبر البوابة');
         setRecipientList((prev) =>
           prev.map((r, idx) =>
             idx === i
@@ -328,7 +370,7 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
       } else {
         warning(
           'اكتملت عملية الإرسال مع تنبيهات',
-          `تم بنجاح: ${successCount} | فشل: ${failCount} (يمكنك فتح المحادثات الفاشلة عبر زر واتساب ويب)`
+          `تم بنجاح: ${successCount} | فشل: ${failCount}${firstErrors.length ? ` — السبب: ${firstErrors[0]}` : ''}`
         );
       }
     }
@@ -663,6 +705,7 @@ export const BulkWhatsAppModal: React.FC<BulkWhatsAppModalProps> = ({
                       <div>
                         <span className="font-bold text-slate-800">{item.customerName || 'المراجع'}</span>
                         <span className="font-mono text-slate-500 text-[11px] mr-2">({item.phoneNumber})</span>
+                        {item.errorMessage && <p className="text-[11px] text-rose-600 font-semibold mt-0.5 break-words">{item.errorMessage}</p>}
                       </div>
                       <button
                         type="button"
