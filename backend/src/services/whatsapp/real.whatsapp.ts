@@ -99,6 +99,7 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
     const apiKey = cfg.apiKey;
     const apiUrl = cfg.apiUrl;
     const senderPhone = this.formatPhoneNumber(cfg.senderPhone);
+    let lastError = '';
 
     // 1. استخدام WPSender الرسمي في حال توفر المفتاح
     if (cfg.provider === 'wpsender' && apiKey) {
@@ -174,12 +175,19 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-api-key': apiKey
+            'x-api-key': apiKey,
+            Authorization: `Bearer ${apiKey}`
           },
           body: JSON.stringify(payload)
         });
 
-        const responseData = await response.json().catch(() => ({}));
+        const rawBody = await response.text().catch(() => '');
+        let responseData: any = {};
+        try {
+          responseData = rawBody ? JSON.parse(rawBody) : {};
+        } catch {
+          responseData = {};
+        }
         // Delivered = HTTP ok AND the provider did not explicitly report a failure
         const explicitFailure =
           responseData.success === false ||
@@ -193,7 +201,16 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
           responseData.messageId ||
           `wps-${Date.now()}`;
         const status: 'SENT' | 'FAILED' = isSuccess ? 'SENT' : 'FAILED';
-        const errorMessage = !isSuccess ? (responseData.message || responseData.error || `HTTP ${response.status}`) : undefined;
+        const providerText =
+          (typeof responseData.message === 'string' && responseData.message) ||
+          (typeof responseData.error === 'string' && responseData.error) ||
+          (responseData.error?.message as string | undefined) ||
+          (rawBody && !rawBody.trim().startsWith('<') ? rawBody.slice(0, 160) : '') ||
+          '';
+        const errorMessage = !isSuccess
+          ? `WPSender [${new URL(apiUrl).pathname}] HTTP ${response.status}${providerText ? `: ${providerText}` : ''}`
+          : undefined;
+        if (errorMessage) lastError = errorMessage;
 
         logMessage({
           phoneNumber: formattedPhone,
@@ -212,6 +229,10 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
         }
       } catch (wpsErr: any) {
         console.error(`💥 [WP SENDER ERROR] Failed:`, wpsErr?.message || wpsErr);
+        lastError =
+          wpsErr?.name === 'AbortError'
+            ? `WPSender: انتهت المهلة (${Math.round(REQUEST_TIMEOUT_MS / 1000)}ث) — البوابة لا ترد أو نائمة`
+            : `WPSender: ${wpsErr?.cause?.code || wpsErr?.message || 'فشل الاتصال'}`;
       }
     }
 
@@ -274,7 +295,8 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
         const isSuccess = response.ok && (data.sent === 'true' || data.sent === true || data.message === 'ok' || Boolean(data.id));
         const messageId = data?.id ? String(data.id) : `ultra-${Date.now()}`;
         const status: 'SENT' | 'FAILED' = isSuccess ? 'SENT' : 'FAILED';
-        const errorMessage = !isSuccess ? (data?.error || data?.message || `HTTP ${response.status}`) : undefined;
+        const errorMessage = !isSuccess ? `UltraMsg HTTP ${response.status}: ${data?.error || data?.message || ''}` : undefined;
+        if (errorMessage) lastError = errorMessage;
 
         logMessage({
           phoneNumber: formattedPhone,
@@ -291,6 +313,7 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
         }
       } catch (ultraErr: any) {
         console.error(`💥 [ULTRAMSG ERROR] Failed:`, ultraErr?.message || ultraErr);
+        lastError = `UltraMsg: ${ultraErr?.name === 'AbortError' ? 'انتهت المهلة' : ultraErr?.message || 'فشل الاتصال'}`;
       }
     }
 
@@ -301,7 +324,7 @@ export class RealWhatsAppProvider implements IWhatsAppProvider {
       status: 'FAILED',
       errorMessage: notConfigured
         ? 'بوابة واتساب غير مهيأة: أدخل مفتاح API من إعدادات واتساب في البوابة'
-        : 'تعذر إرسال رسالة الواتساب عبر جميع المزودين'
+        : lastError || 'تعذر إرسال رسالة الواتساب عبر جميع المزودين'
     };
   }
 }
